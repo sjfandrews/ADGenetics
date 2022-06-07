@@ -1,0 +1,587 @@
+~/minerva_sc/arion/projects/LOAD/shea/Projects/mtDNAcn/data/xcell/ampad_xCell.csv
+foo <- function(case, ctrl){( (4 * case *  ctrl  ) / ( case +  ctrl ))}
+foo(25580, 48466)
+foo(35274, 59163)
+foo((25580 + 68337), 294407)
+foo((24087 + 47793), 383378)
+foo((64498 + 46828), 677663)
+foo((43725 + 46613), 1036225)
+library(tidyverse)
+dat <- read_table("~/Downloads/adi-download/NY_2019_ADI_9 Digit Zip Code_v3.1.txt")
+dat
+dat <- read_csv("~/Downloads/adi-download/NY_2019_ADI_9 Digit Zip Code_v3.1.txt")
+dat
+ln()
+log(1.18)
+log(-1.18)
+library(SciViews)
+install.packages('SciViews')
+SciViews::ln(1.18)
+SciViews::ln(-1.18)
+library(mediation)#
+library(mvtnorm)#
+library(sandwich)#
+library(tidyverse)#
+library(dplyr)#
+library(glue)#
+library(janitor)#
+library(gtsummary)#
+library(readxl)#
+library(VGAM)#
+library(ggiraphExtra)#
+`%nin%` = Negate(`%in%`)
+mito.raw <- read_csv("/sc/arion/projects/LOAD/harern01/projects/ampad_mtDNAcn/data/mito_datasets.csv")#
+pheno.raw <- read_csv("/sc/arion/projects/LOAD/harern01/projects/ampad_mtDNAcn/data/rosmap_pheno.csv")#
+pheno <- pheno.raw %>% #
+  mutate(study_tissue = glue("{study}_{tissue}"),#
+         qc = ifelse(str_detect(qc, "Fail"), "Fail", "Pass"))  %>% #
+  filter(qc == "Pass") %>% #
+  filter(organ == "Brain") %>%#
+  filter(tissue %in% c("CBE", "DLPFC", "PCC")) %>%#
+  filter(race7 == "1" & spanish == "2") %>% #
+  filter(!is.na(educ)) %>% #
+  filter(!is.na(msex)) %>% #
+  mutate(#
+    APOE4 = case_when(#
+      apoe_genotype %in% c(44, 24, 34) ~ 1, #
+      apoe_genotype %in% c(22, 23, 33) ~ 0, #
+    ),#
+    apoe_alleles = case_when(#
+      apoe_genotype == "24" | apoe_genotype == "34" | apoe_genotype == "44" ~ "ε4+", #
+      apoe_genotype == "22" | apoe_genotype == "23" ~ "ε2+", #
+      apoe_genotype == "33" ~ "ε3/ε3"#
+      ),#
+    AD = case_when(#
+      cogdx == "1" ~ "control", #
+      cogdx == "2" | cogdx == "3" ~ "AD", #
+      cogdx == "4" | cogdx == "5" ~ "AD", #
+      cogdx == "6" ~ "Other Dementia"#
+    ), #
+    msex = as.factor(msex), #
+    sex = as.factor(ifelse(msex == "1", "M", ifelse(msex == "0", "F", msex))), #
+    gpath_sqrt = sqrt(gpath), #
+    tangles_sqrt = sqrt(tangles), #
+    amyloid_sqrt = sqrt(amyloid), #
+    ) %>% #
+  filter(!cogdx == 6) %>% #
+  dplyr::select(wgs_id, projid, age_death, msex, APOE4, apoe_alleles, AD, ad_reagan,#
+                amyloid, gpath, tangles, gpath_sqrt, tangles_sqrt, amyloid_sqrt,#
+                study_tissue,  #
+                pmi, cts_mmse30_lv, cogn_global_lv)#
+rosmap_mito <- mito.raw %>%#
+  filter(tissue %in% c("CBE", "DLPFC", "PCC"))%>%#
+  mutate(cohort = replace_na(cohort, "MSSM"))%>%#
+  mutate(cohort = case_when((cohort == "MAP") ~ "ROSMAP",#
+                            (cohort == "ROS") ~ "ROSMAP")) %>%#
+  mutate(tissue = case_when((tissue == "DLPFC") ~ "DLPFC",#
+                            (tissue == "CBE") ~ "CBE",#
+                            (tissue == "PCC") ~ "PCC")) %>%#
+  mutate(study_tissue = glue("{cohort}_{tissue}"),#
+         qc = ifelse(str_detect(qc, "Fail"), "Fail", "Pass")) %>%#
+  mutate(qc = replace_na(qc, "na")) %>%#
+  filter(hap %in% c("H", "I", "J", "K", "T", "V", "W", "X", "U"))%>% #
+  mutate(hap = fct_relevel(hap, "H")) %>% #
+  filter(!str_detect(qc, "Fail")) %>% #
+  mutate(hap2 = fct_collapse(hap,#
+               XIW = c("X", "I", "W"))) %>% #
+  dplyr::select(SampleID, specimenID,study_tissue,mito_cn, hap,n_Het, hap2) %>%#
+  mutate(z_mito_cn = scale(mito_cn, center = TRUE, scale = TRUE)[,1], #
+         study_tissue = fct_relevel(study_tissue, "ROSMAP_DLPFC", "ROSMAP_PCC", "ROSMAP_CBE")#
+         )#
+rosmap_final <-  pheno %>% #
+  dplyr::select(-study_tissue) %>% #
+  left_join(rosmap_mito, by = c( "wgs_id" = "specimenID"))  %>% #
+  mutate(apoe_alleles = fct_relevel(apoe_alleles, "ε3/ε3"))%>%#
+  mutate(AD = as.factor(AD))#
+  #mutate_each_(funs(scale),vars=c("mito_cn"))%>%#
+#
+rosmap_test <- fastDummies::dummy_cols(rosmap_final, select_columns = 'hap2') %>%#
+  mutate(dx = ifelse(AD == "AD", 1, 0))
+### Revised cognition variabels #
+rosmap_pheno_bl_path = "/sc/arion/projects/LOAD/shea/data/AMPAD/resources/rosmap/dataset_899_basic_08-22-2020.xlsx"#
+rosmap_pheno_long_path = "/sc/arion/projects/LOAD/shea/data/AMPAD/resources/rosmap/dataset_899_long_08-22-2020.xlsx"#
+yoa_path = "/sc/arion/projects/LOAD/shea/data/AMPAD/resources/rosmap/dataset_889_long_YearOfAssement_11-2020.xlsx"#
+rosmap_clin <- read_csv(rosmap_clin_path, guess_max = 10000)  %>% #
+  clean_names()#
+rosmap.pheno_bl <- readxl::read_xlsx(rosmap_pheno_bl_path) %>%#
+  mutate(projid = as.numeric(projid))#
+rosmap.pheno_long.raw <- readxl::read_xlsx(rosmap_pheno_long_path) %>%#
+  mutate(projid = as.numeric(projid))#
+#
+### Year of assesment #
+yoa <- readxl::read_xlsx(yoa_path) %>%#
+  rename(year = `YEAR(cogdate)`) %>% #
+  mutate(fu_year = as.numeric(fu_year), #
+         projid = str_remove(projid, "^0+"), #
+         projid = as.numeric(projid)) %>% #
+  select(projid, fu_year, year) #
+#
+### extract baseline and last vist values and spread#
+rosmap.pheno_long <- rosmap.pheno_long.raw %>% #
+  left_join(yoa) %>% #
+  group_by(projid) %>%#
+  slice(c(which.min(fu_year), which.max(fu_year))) %>%#
+  mutate(visit = case_when(fu_year == min(fu_year) ~ "bl", #
+                           fu_year == max(fu_year) ~ "lv")) %>%#
+  distinct(., fu_year, .keep_all = TRUE) %>%#
+  ungroup() %>%#
+  pivot_wider(names_from = visit, values_from = c(-projid, -study, -scaled_to))#
+#
+rosmap.pheno_long_test <- rosmap.pheno_long.raw %>% #
+  left_join(yoa) %>% #
+  group_by(projid) %>%#
+  # filter(!is.na(cogn_global)) %>%#
+  slice(c(which.min(fu_year), which.max(fu_year))) %>%#
+  mutate(visit = case_when(fu_year == min(fu_year) ~ "bl", #
+                           fu_year == max(fu_year) ~ "lv")) %>%#
+  distinct(., fu_year, .keep_all = TRUE) %>%#
+  ungroup() %>%#
+  pivot_wider(names_from = visit, values_from = c(-projid, -study, -scaled_to)) %>% #
+  select(projid, fu_year_bl, fu_year_lv, year_bl, year_lv, visit_bl, visit_lv, cogn_global_bl, cogn_global_lv)#
+#
+test <- rosmap.pheno_long.raw %>% #
+  left_join(yoa) %>% #
+  group_by(projid) %>%#
+  filter(!is.na(cogn_global)) %>%#
+  slice(c(which.min(fu_year), which.max(fu_year))) %>%#
+  mutate(visit = case_when(fu_year == min(fu_year) ~ "bl", #
+                           fu_year == max(fu_year) ~ "lv")) %>%#
+  distinct(., fu_year, .keep_all = TRUE) %>%#
+  ungroup() %>%#
+  pivot_wider(names_from = visit, values_from = c(-projid, -study, -scaled_to)) %>% #
+  mutate(cogn_global_lv = ifelse(is.na(fu_year_lv), cogn_global_bl, cogn_global_lv)) %>%#
+  semi_join(test, pheno, by = "projid") %>% select(projid, cogn_global_lv_new = cogn_global_lv)
+test <- rosmap.pheno_long.raw %>%
+test <- rosmap.pheno_long.raw %>% #
+  left_join(yoa) %>% #
+  group_by(projid) %>%#
+  filter(!is.na(cogn_global)) %>%#
+  slice(c(which.min(fu_year), which.max(fu_year))) %>%#
+  mutate(visit = case_when(fu_year == min(fu_year) ~ "bl", #
+                           fu_year == max(fu_year) ~ "lv")) %>%#
+  distinct(., fu_year, .keep_all = TRUE) %>%#
+  ungroup() %>%#
+  pivot_wider(names_from = visit, values_from = c(-projid, -study, -scaled_to)) %>% #
+  mutate(cogn_global_lv = ifelse(is.na(fu_year_lv), cogn_global_bl, cogn_global_lv)) %>%#
+  semi_join(pheno, by = "projid") %>% select(projid, cogn_global_lv_new = cogn_global_lv)
+test
+getres <- function(res,vars){#
+  res %>%#
+    broom::tidy() %>%#
+    mutate(estimate = round(estimate, 2), #
+           std.error = round(std.error, 2), #
+           p.value = ifelse(p.value < 0.001, scales::scientific(p.value, digits = 2), round(p.value, 3)),#
+           out = glue("b (se) = {estimate} ({std.error}), p = {p.value}")) %>%#
+    filter(term %in% vars)#
+} #
+#
+getres_or <- function(res, vars){#
+  res %>% broom::tidy(conf.int = T) %>%#
+    mutate(or = exp(estimate) %>% round(2), #
+           or.conf.low = exp(conf.low) %>% round(2), #
+           or.conf.high = exp(conf.high) %>% round(2),#
+           p.value = ifelse(p.value < 0.001, scales::scientific(p.value, digits = 2), round(p.value, 3)),#
+           out = glue("OR (95%CI) = {or} ({or.conf.low}, {or.conf.high}), p = {p.value}")) %>%#
+    filter(term %in% vars)#
+}#
+#
+getres_med <- function(res){#
+  res %>% as.data.frame() %>% #
+    rownames_to_column() %>%#
+    rename(uci = `95% CI Upper`, lci = `95% CI Lower`, p = `p-value`) %>%#
+    mutate(Estimate = round(Estimate, 2), #
+           uci = round(uci, 2), #
+           lci = round(lci, 2), #
+           p = ifelse(p < 0.001, scales::scientific(p, digits = 2), round(p, 3)),#
+           out = glue("{rowname} (95%CI) = {Estimate} ({lci}, {uci}), p = {p}")) #
+}
+cogn_global <- rosmap_test %>%#
+  left_join(test) %>%#
+  filter(!is.na(tangles_sqrt), !is.na(amyloid_sqrt), !is.na(cogn_global_lv_new))
+cogn_global
+fitY_global_tangles <- lm(cogn_global_lv_new ~ z_mito_cn + age_death + msex + apoe_alleles + study_tissue + pmi + #
+              n_Het +   hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW, cogn_global) #
+fitM_global_tangles <- lm(tangles_sqrt ~ z_mito_cn + age_death+ msex + apoe_alleles + study_tissue + pmi + #
+             n_Het +  hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW , cogn_global) #mtCN on M; #
+fitMY_global_tangles <- lm(cogn_global_lv_new ~ z_mito_cn + tangles_sqrt + age_death + msex + apoe_alleles + #
+                             study_tissue + pmi +#
+                             n_Het + hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW  , cogn_global) #
+fitMed_global_tangles <- mediate(fitM_global_tangles, fitMY_global_tangles, treat="z_mito_cn", mediator="tangles_sqrt", #
+                                 boot=TRUE, sims=999)#
+tangles_cogn <- summary(fitMed_global_tangles)
+getres(fitY_global_tangles, 'z_mito_cn')
+getres(fitM_global_tangles, 'z_mito_cn')
+getres(fitMY_global_tangles, c('z_mito_cn', 'tangles_sqrt'))
+extract_mediation_summary(fitMed_global_tangles) %>% getres_med()
+extract_mediation_summary <- function (x) { #
+  clp <- 100 * x$conf.level#
+  isLinear.y <- ((class(x$model.y)[1] %in% c("lm", "rq")) || #
+                   (inherits(x$model.y, "glm") && x$model.y$family$family == #
+                      "gaussian" && x$model.y$family$link == "identity") || #
+                   (inherits(x$model.y, "survreg") && x$model.y$dist == #
+                      "gaussian"))#
+  printone <- !x$INT && isLinear.y#
+  if (printone) {#
+    smat <- c(x$d1, x$d1.ci, x$d1.p)#
+    smat <- rbind(smat, c(x$z0, x$z0.ci, x$z0.p))#
+    smat <- rbind(smat, c(x$tau.coef, x$tau.ci, x$tau.p))#
+    smat <- rbind(smat, c(x$n0, x$n0.ci, x$n0.p))#
+    rownames(smat) <- c("ACME", "ADE", "Total Effect", "Prop. Mediated")#
+  } else {#
+    smat <- c(x$d0, x$d0.ci, x$d0.p)#
+    smat <- rbind(smat, c(x$d1, x$d1.ci, x$d1.p))#
+    smat <- rbind(smat, c(x$z0, x$z0.ci, x$z0.p))#
+    smat <- rbind(smat, c(x$z1, x$z1.ci, x$z1.p))#
+    smat <- rbind(smat, c(x$tau.coef, x$tau.ci, x$tau.p))#
+    smat <- rbind(smat, c(x$n0, x$n0.ci, x$n0.p))#
+    smat <- rbind(smat, c(x$n1, x$n1.ci, x$n1.p))#
+    smat <- rbind(smat, c(x$d.avg, x$d.avg.ci, x$d.avg.p))#
+    smat <- rbind(smat, c(x$z.avg, x$z.avg.ci, x$z.avg.p))#
+    smat <- rbind(smat, c(x$n.avg, x$n.avg.ci, x$n.avg.p))#
+    rownames(smat) <- c("ACME (control)", "ACME (treated)", #
+                        "ADE (control)", "ADE (treated)", "Total Effect", #
+                        "Prop. Mediated (control)", "Prop. Mediated (treated)", #
+                        "ACME (average)", "ADE (average)", "Prop. Mediated (average)")#
+  }#
+  colnames(smat) <- c("Estimate", paste(clp, "% CI Lower", sep = ""), #
+                      paste(clp, "% CI Upper", sep = ""), "p-value")#
+  smat#
+}
+getres(fitY_ad_tangles, 'z_mito_cn')#
+getres(fitM_ad_tangles, 'z_mito_cn')#
+getres(fitMY_ad_tangles, c('z_mito_cn', 'tangles_sqrt'))#
+extract_mediation_summary(fitMed_ad_tangles) %>% getres_med()
+getres(fitY_global_tangles, 'z_mito_cn')#
+getres(fitM_global_tangles, 'z_mito_cn')#
+getres(fitMY_global_tangles, c('z_mito_cn', 'tangles_sqrt'))#
+extract_mediation_summary(fitMed_global_tangles) %>% getres_med()
+summary(fitY_global_tangles)
+fitY_global_tangles <- lm(cogn_global_lv_new ~ z_mito_cn + age_death + msex + APOE4 + study_tissue + pmi +
+fitY_global_tangles <- lm(cogn_global_lv_new ~ z_mito_cn + age_death + msex + APOE4 + study_tissue + pmi + #
+              n_Het +   hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW, cogn_global)
+summary(fitY_global_tangles)
+fitM_global_tangles <- lm(tangles_sqrt ~ z_mito_cn + age_death+ msex + APOE4 + study_tissue + pmi + #
+             n_Het +  hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW , cogn_global) #mtCN on M;
+summary(fitM_global_tangles)
+glance(fitM_global_tangles)
+library(broom)
+glance(fitM_global_tangles)
+summary(fitMY_global_tangles)
+fitMY_global_tangles <- lm(cogn_global_lv_new ~ z_mito_cn + tangles_sqrt + age_death + msex + APOE4 + #
+                             study_tissue + pmi +#
+                             n_Het + hap2_J + hap2_K + hap2_T + hap2_U + hap2_V + hap2_XIW  , cogn_global)
+summary(fitMY_global_tangles)
+summary(fitM_global_tangles)
+library(gt)
+?tab_spanner
+devtools::install_github("rstudio/gt")
+setwd('~/Dropbox/Research/PostDoc-MSSM/Neurogenomics/')
+snpeff.path <- "intermediate/adgwas_loci.ann.vcf"#
+snpeff.raw <- vcfR::read.vcfR(snpeff.path) %>%#
+  vcfR::vcfR2tidy(., info_only = F)
+library(tidyverse)
+snpeff.path <- "intermediate/adgwas_loci.ann.vcf"#
+snpeff.raw <- vcfR::read.vcfR(snpeff.path) %>%#
+  vcfR::vcfR2tidy(., info_only = F)
+ann_cols <- c("Allele", "Annotation", "Annotation_Impact", "Gene_Name", "Gene_ID", "Feature_Type", "Feature_ID", "Transcript_BioType", "Rank", "HGVS.c", "HGVS.p", "cDNA.pos / cDNA.length", "CDS.pos / CDS.length", "AA.pos / AA.length", "Distance", "ERRORS / WARNINGS / INFO")
+ann <- snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP) %>%#
+  left_join(., snpeff.raw$fix, by = c("ChromKey", "POS")) %>% #
+  select(-ChromKey, -ID, -QUAL, -FILTER, -LOF, -NMD) %>%#
+  mutate(ANN = strsplit(ANN, ",")) %>% #
+  unnest(cols = ANN) %>%#
+  separate(ANN, into = ann_cols, sep = "\\|") %>%#
+  janitor::clean_names() %>%#
+  mutate(chrom = as.numeric(chrom))
+snpeff <- ann %>% #
+  filter(transcript_bio_type %in% c("", "protein_coding")) %>%#
+  group_by(snp) %>% #
+  slice_head() %>% #
+  ungroup() %>% #
+  arrange(chrom, pos)
+snpeff
+gnomadaf.raw <- vcfR::read.vcfR('~/Dropbox/Research/PostDoc-MSSM/Neurogenomics/intermediate/gnomad_af.vcf')
+gnomadaf <- gnomadaf.raw %>%#
+  vcfR::vcfR2tidy(., info_only = T) %>%#
+  magrittr::extract2("fix") %>%#
+  select(CHROM, POS, ID, REF, ALT, AF, AF_raw, AF_afr, AF_eas, AF_amr, AF_nfe, AF_asj, AF_fin) %>%#
+  mutate(AF = as.numeric(AF), #
+         gnomad_maf = ifelse(AF > 0.5, 1 - AF, AF), #
+         CHROM = as.numeric(CHROM)) %>%#
+  janitor::clean_names()
+gnomadaf
+gnomad_maf <- select(gnomadaf, chrom, pos, id, ref, alt, af, gnomad_maf)
+test <- select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')) %>%#
+    filter(is.na(id))
+test
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    filter(snp %in% c("rs9271058", "rs9271192", "rs1160871", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id'))
+gnomad_maf
+gnomad_maf <- select(gnomadaf, chrom, pos, id, ref, alt, af, gnomad_maf) %>%#
+  add_row(chrom = 7, pos = 28168746, id = "rs1160871", ref = 'GTCTT', alt = "G", af = 0.4076, gnomad_maf = 0.4076)
+test <- select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')) %>%#
+    filter(is.na(id))
+test
+bind_rows(#
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')), #
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    filter(snp %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id')) #
+)
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt'))
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')) %>%#
+    filter(!is.na(id))
+bind_rows(#
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    left_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')) %>%#
+    filter(!is.na(id)), #
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    filter(snp %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id')) #
+)
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    semi_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')) %>%#
+    filter(!is.na(id))
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    semi_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt'))
+select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    filter(snp %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    semi_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id'))
+bind_rows(#
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    semi_join(gnomad_maf, by = c('chrom', 'pos', 'ref', 'alt')), #
+  select(snpeff, snp, chrom, pos, ref, alt, allele, annotation, gene_name) %>%#
+    filter(snp %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    semi_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id')) #
+)
+lambert <- read_csv("intermediate/lambert_loci.csv")#
+kunkle <- read_csv("intermediate/kunkle_loci.csv")#
+marioni <- read_csv("intermediate/marioni_loci.csv")#
+jansen <- read_csv("intermediate/jansen_loci.csv")#
+wightman <- read_csv("intermediate/wightman_loci.csv")#
+bellenguez <- read_csv("intermediate/bellenguez_loci.csv")#
+other <- read_csv("intermediate/other_loci.csv", col_types = list(A2 = col_character()))
+snps <- bind_rows(#
+  lambert %>% select(SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>% mutate(study = "Lambert"),#
+  kunkle %>% select(SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>% mutate(study = "Kunkle"),#
+  marioni %>% select(SNP, CHR, BP, A1, A2, FRQ, OR, P) %>% mutate(study = "Marioni"),#
+  jansen %>% select(SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>% mutate(study = "Jansen"),#
+  wightman %>% select(SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>% mutate(study = "Wightman"),#
+  bellenguez %>% select(SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>% mutate(study = "Bellenguez"),#
+  other#
+) %>%#
+  arrange(CHR, BP)
+snps
+snp_list <- snps %>% #
+  left_join(adgwas, by = "study") %>% #
+  group_by(CHR, BP) %>%#
+  slice(which.max(neff)) %>%#
+  ungroup() %>%#
+  select(SNP, CHR, BP, A1, A2, OR, P, study)
+adgwas <- tribble(#
+  ~study, ~year, ~neff, ~n, ~n_pca, ~n_ca, ~n_cn, ~n_loci, ~ancestry, ~cohorts, ~notes,#
+  "Lambert", 2013, NA, 74046, NA, 17008, 37154, 19, NA, NA, NA,#
+  "Kunkle", 2019, NA, 94437, NA, 35274, 59163, 24, NA, NA, NA, #
+  "Marioni", 2018, NA, 377012, NA, (27696 + 14338 + 25580), (37154 + 245941), 26, NA, NA, NA,#
+  "Jansen", 2019, NA, 455258, NA, (24087 + 47793), (55058 + 328320), 29, NA, NA, NA, #
+  "Wightman", 2021, NA, 1126563, NA, 90338, 1036225, 38, NA, NA, NA, #
+  "Bellenguez", 2022, NA, 528781, NA, (39106 + 46828 + 25392), (401577 + 276086), 83, NA, NA, NA,#
+  "Naj", 2021, NA, NA, NA, (25170 + 20301 + 35214), (41052 + 21839 + 180791), 29, NA, NA, "29 in stage 1 + 2; 24 w/ UKB in stage 3",#
+  "Corder", 1993, 0, 1, NA, 1, 1, NA, NA, NA, NA, #
+  "Jonsson", 2012, 0, 1, NA, 1, 1, NA, NA, NA, NA,#
+) %>% #
+  mutate(neff = 4 / ((1/n_ca) + (1/n_cn)))
+snp_list <- snps %>% #
+  left_join(adgwas, by = "study") %>% #
+  group_by(CHR, BP) %>%#
+  slice(which.max(neff)) %>%#
+  ungroup() %>%#
+  select(SNP, CHR, BP, A1, A2, OR, P, study)
+snp_list
+snp_list_munged <- MungeSumstats::format_sumstats(path=snp_list, #
+                                 ref_genome="GRCh37", #
+                                 allele_flip_check = TRUE, #
+                                 allele_flip_drop = FALSE, #
+                                 bi_allelic_filter = FALSE,#
+                                 return_data = TRUE, #
+                                 log_folder = "data/MungeSumstats", #
+                                 force_new = TRUE) %>%#
+  as_tibble() %>%#
+  mutate(CHR = as.numeric(CHR))
+snp_list_munged
+snp_list_munged %>%#
+  bind_rows(anti_join(snp_list, ., by = c("CHR", "BP"))) %>%#
+  arrange(CHR, BP) %>% #
+  select(-study)
+snp_list_out <- snp_list_munged %>%#
+  bind_rows(anti_join(snp_list, ., by = c("CHR", "BP"))) %>%#
+  arrange(CHR, BP) %>% #
+  select(-study)
+snp_list_out
+snp_list_out %>%#
+    semi_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt'))
+filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940"))
+snp_list_out
+print(snp_list_out, n = Inf)
+snp_list
+filter(snp_list, is.na(study))
+snp_list_munged
+filter(snp_list_munged, is.na(STUDY))
+snp_list_munged %>%#
+  bind_rows(anti_join(snp_list, ., by = c("CHR", "BP")))
+snp_list <- snps %>% #
+  left_join(adgwas, by = "study") %>% #
+  group_by(CHR, BP) %>%#
+  slice(which.max(neff)) %>%#
+  ungroup() %>%#
+  select(SNP, CHR, BP, A1, A2, OR, P, study) %>%#
+  rename(STUDY = study)
+snp_list_out <- snp_list_munged %>%#
+  bind_rows(anti_join(snp_list, ., by = c("CHR", "BP"))) %>%#
+  arrange(CHR, BP) %>% #
+  select(-study)
+snp_list_out <- snp_list_munged %>%#
+  bind_rows(anti_join(snp_list, ., by = c("CHR", "BP"))) %>%#
+  arrange(CHR, BP)
+snp_list_out
+filter(snp_list_out, is.na(STUDY))
+snp_list_out %>%#
+    semi_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt'))
+filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    semi_join(select(gnomad_maf, id, af, gnomad_maf), by = c('snp' = 'id'))
+filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    semi_join(select(gnomad_maf, id, af, gnomad_maf), by = c('SNP' = 'id'))
+gnomad_maf %>%#
+    semi_join(snp_list_out, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt'))
+snp_list_out %>%#
+    left_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt'))
+snp_list_out %>%#
+    left_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt'))
+snp_list_out %>%#
+    left_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt')) %>%#
+    filter(!is.na(id))
+filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf, id, af, gnomad_maf), by = c('SNP' = 'id'))
+bind_rows(#
+  snp_list_out %>%#
+    left_join(gnomad_maf, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt')) %>%#
+    filter(!is.na(id)), #
+  filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf, id, af, gnomad_maf), by = c('SNP' = 'id')) #
+) %>%#
+  arrange(CHR, BP)
+gnomad_maf.raw <- select(gnomad_af, chrom, pos, id, ref, alt, af, gnomad_maf) %>%#
+  add_row(chrom = 7, pos = 28168746, id = "rs1160871", ref = 'GTCTT', alt = "G", af = 0.4076, gnomad_maf = 0.4076)
+gnomad_af <- gnomadaf.raw %>%#
+  vcfR::vcfR2tidy(., info_only = T) %>%#
+  magrittr::extract2("fix") %>%#
+  select(CHROM, POS, ID, REF, ALT, AF, AF_raw, AF_afr, AF_eas, AF_amr, AF_nfe, AF_asj, AF_fin) %>%#
+  mutate(AF = as.numeric(AF), #
+         gnomad_maf = ifelse(AF > 0.5, 1 - AF, AF), #
+         CHROM = as.numeric(CHROM)) %>%#
+  janitor::clean_names()#
+#
+gnomad_maf.raw <- select(gnomad_af, chrom, pos, id, ref, alt, af, gnomad_maf) %>%#
+  add_row(chrom = 7, pos = 28168746, id = "rs1160871", ref = 'GTCTT', alt = "G", af = 0.4076, gnomad_maf = 0.4076)#
+#
+gnomad_maf <- bind_rows(#
+  snp_list_out %>%#
+    left_join(gnomad_maf.raw, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt')) %>%#
+    filter(!is.na(id)), #
+  filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf.raw, id, af, gnomad_maf), by = c('SNP' = 'id')) #
+) %>%#
+  arrange(CHR, BP)
+gnomad_af
+gnomad_maf
+filter
+count(gnomad_maf, SNP == id)
+print(gnomad_maf, n =Inf)
+gnomad_maf <- bind_rows(#
+  snp_list_out %>%#
+    left_join(gnomad_maf.raw, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt')) %>%#
+    filter(!is.na(id)), #
+  filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf.raw, id, af, gnomad_maf), by = c('SNP' = 'id')) #
+) %>%#
+  arrange(CHR, BP) %>%#
+  select(SNP, CHR, BP, A1, A2, gnomad_af = af, gnomad_maf)
+gnomad_maf
+snps
+gnomad_maf
+gnomad_af
+gnomad_af <- gnomadaf.raw %>%#
+  vcfR::vcfR2tidy(., info_only = T) %>%#
+  magrittr::extract2("fix") %>%#
+  select(CHROM, POS, ID, REF, ALT, AF, AF_raw, AF_afr, AF_eas, AF_amr, AF_nfe, AF_asj, AF_fin) %>%#
+  mutate(AF = as.numeric(AF), #
+         gnomad_maf = ifelse(AF > 0.5, 1 - AF, AF), #
+         gnomad_minor = ifelse(AF > 0.5, REF, ALT),#
+         CHROM = as.numeric(CHROM)) %>%#
+  janitor::clean_names()
+gnomad_af
+gnomad_maf.raw <- select(gnomad_af, chrom, pos, id, ref, alt, gnomad_minor, af, gnomad_maf) %>%#
+  add_row(chrom = 7, pos = 28168746, id = "rs1160871", ref = 'GTCTT', alt = "G", af = 0.4076, gnomad_maf = 0.4076)
+gnomad_maf <- bind_rows(#
+  snp_list_out %>%#
+    left_join(gnomad_maf.raw, by = c("CHR" = 'chrom', 'BP' = 'pos', 'A1' = 'ref', 'A2' = 'alt')) %>%#
+    filter(!is.na(id)), #
+  filter(snp_list_out, SNP %in% c("rs9271058", "rs9271192", "rs35048651", "rs540800940")) %>%#
+    left_join(select(gnomad_maf.raw, id, af, gnomad_maf), by = c('SNP' = 'id')) #
+) %>%#
+  arrange(CHR, BP) %>%#
+  select(SNP, CHR, BP, A1, A2, gnomad_minor, gnomad_af = af, gnomad_maf)
+gnomad_maf
+snpeff
+ann
+snpeff.raw$gt
+snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP)
+snpeff.raw$fix
+snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP) %>%#
+  left_join(., snpeff.raw$fix, by = c("ChromKey", "POS")) %>% #
+  select(-ChromKey, -ID, -QUAL, -FILTER, -LOF, -NMD)
+snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP) %>%#
+  left_join(., snpeff.raw$fix, by = c("ChromKey", "POS")) %>% #
+  select(-ChromKey, -ID, -QUAL, -FILTER, -LOF, -NMD) %>%#
+  mutate(ANN = strsplit(ANN, ","))
+snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP) %>%#
+  left_join(., snpeff.raw$fix, by = c("ChromKey", "POS")) %>% #
+  select(-ChromKey, -ID, -QUAL, -FILTER, -LOF, -NMD) %>%#
+  mutate(ANN = strsplit(ANN, ",")) %>% #
+  unnest(cols = ANN)
+snpeff.raw$gt %>% #
+  select(ChromKey, POS, SNP = gt_SNP) %>%#
+  left_join(., snpeff.raw$fix, by = c("ChromKey", "POS")) %>% #
+  select(-ChromKey, -ID, -QUAL, -FILTER, -LOF, -NMD) %>%#
+  mutate(ANN = strsplit(ANN, ",")) %>% #
+  unnest(cols = ANN) %>%#
+  separate(ANN, into = ann_cols, sep = "\\|")
+snpeff
+count(snpeff, alt == allele)
+snps
+snps %>%#
+  left_join(snpeff, by = c("SNP" = "snp"))
+snps
+snps %>%#
+  left_join(snpeff, by = c("SNP" = "snp")) %>%#
+  count(A1 == allele)
+snps %>%#
+  left_join(snpeff, by = c("SNP" = "snp")) %>%#
+  count(A2 == allele)
+snps %>%#
++   left_join(snpeff, by = c("SNP" = "snp")) %>%#
+ filter(A2 != allele)
+snps %>%#
+  left_join(snpeff, by = c("SNP" = "snp")) %>% filter(A2 != allele)
+snps %>%#
+  left_join(snpeff, by = c("SNP" = "snp")) %>% filter(A2 != allele) %>% print(n = Inf)
