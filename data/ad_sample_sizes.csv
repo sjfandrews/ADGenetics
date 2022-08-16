@@ -1,0 +1,26 @@
+﻿cohort,study,wightman_cases,wightman_controls,bellenguez_cases,bellenguez_controls
+GERAD,both,3177,7277,3030,7153
+EADI,both,2240,6631,2400,6338
+CHARGE-CHS,both,450,1702,450,1702
+CHARGE-FHS,both,472,3878,472,3878
+CHARGE-Rotterdam,both,985,4985,1306,6700
+CHARGE-AGES,wightman,95,2708,,
+CHARGE-ASPS,wightman,277,169,,
+ADGC,both,14428,14562,17141,17627
+UKB,both,46613,318246,49275,338440
+DemGene,both,1638,6059,1693,5926
+TwinGene,wightman,224,6321,,
+STSA,wightman,320,750,,
+deCODE ,wightman,7002,181573,,
+Finngen,both,1798,72206,7329,252879
+GR@CE,both,4120,3289,6497,6785
+HUNT,wightman,1156,7157,,
+BioVU,wightman,600,36059,,
+23andMe,wightman,3807,359839,,
+Gothenburg,wightman,712,2523,,
+ANMerge,wightman,366,259,,
+EADB-TopMed,bellenguez,,,20301,21839
+EADB-HRC,bellenguez,,,163,405
+Bonn,bellenguez,,,635,1210
+CCHS,bellenguez,,,365,6106
+NxC,bellenguez,,,269,675
