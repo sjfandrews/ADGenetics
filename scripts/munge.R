@@ -4,7 +4,7 @@ library(tabulizer)
 library(fuzzyjoin)
 
 data(sumstatsColHeaders)
-setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/Neurogenomics/")
+setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/")
 
 calc_se_from_beta_and_l95 = function(or, l95){
   logOR = log(or)

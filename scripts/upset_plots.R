@@ -5,9 +5,9 @@ library(plotgardener)
 library(GGally)
 `%nin%` = negate(`%in%`)
 
-setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/Neurogenomics/")
+setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/")
 
-ad_loci <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/Neurogenomics/intermediate/ad_loci.csv")
+ad_loci <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_loci.csv")
 
 ad_genes <- select(ad_loci, study, locus, CHR, BP, P, gencode_gene, gvc_gene) %>%
   mutate(gene = ifelse(is.na(gvc_gene), gencode_gene, gvc_gene), 
