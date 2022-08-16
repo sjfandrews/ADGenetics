@@ -1,0 +1,23 @@
+##fileformat=VCFv4.1
+##fileDate=20220805
+##phasing=unphased
+##source=VariantAnnotation 1.42.1
+##FORMAT=<ID=AD,Number=2,Type=Integer,Description="Allelic depths (number of reads in each observed allele)">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Total read depth">
+##FORMAT=<ID=FT,Number=1,Type=String,Description="Variant filters">
+##FORMAT=<ID=P,Number=1,Type=Float,Description=".">
+##FORMAT=<ID=FRQ,Number=1,Type=Float,Description=".">
+##FORMAT=<ID=OR,Number=1,Type=Float,Description=".">
+##FORMAT=<ID=BETA,Number=1,Type=Float,Description=".">
+##FORMAT=<ID=SE,Number=1,Type=Float,Description=".">
+##FORMAT=<ID=MAF,Number=1,Type=Float,Description=".">
+##contig=<ID=1>
+##contig=<ID=2>
+##contig=<ID=4>
+##contig=<ID=19>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	GWAS
+1	155206167	.	C	T	.	.	.	P:FRQ:OR:BETA:SE:MAF	1.28243e-12:0.00906382:2.88873:1.06082:0.149491:0.00906382
+2	127892810	.	C	T	.	.	.	P:FRQ:OR:BETA:SE:MAF	4.16037e-09:0.361559:1.25424:0.22653:0.0385412:0.361559
+4	939087	.	C	T	.	.	.	P:FRQ:OR:BETA:SE:MAF	3.53935e-08:0.310388:1.24657:0.220396:0.0399821:0.310388
+4	90763360	.	A	C	.	.	.	P:FRQ:OR:BETA:SE:MAF	9.72911e-11:0.503725:1.27158:0.240262:0.0371284:0.496275
+19	45410002	.	G	A	.	.	.	P:FRQ:OR:BETA:SE:MAF	4.65376e-63:0.100074:2.46483:0.902123:0.0538205:0.100074
