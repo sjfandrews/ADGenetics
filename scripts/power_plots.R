@@ -11,7 +11,11 @@ adgwas <- tribble(
   "Wightman", 2021, NA, 1126563, NA, 90338, 1036225, 38, NA, NA, NA,
   "Bellenguez", 2022, NA, 528781, NA, (39106 + 46828 + 25392), (401577 + 276086), 75, NA, NA, NA,
 ) %>% 
-  mutate(neff = 4 / ((1/n_ca) + (1/n_cn))) 
+  mutate(
+  	effN = 4 / ((1/n_ca) + (1/n_cn)), 
+	phi = n_ca/n,
+	neff = n*phi*(1-phi)
+  ) 
 
 ################# Draw curves indicating the effect size needed across different MAF threshols
 
@@ -56,7 +60,7 @@ power_gwas <- bind_rows(out) %>%
     study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez")
   )
 
-write_csv(power_gwas, "/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/Neurogenomics/intermediate/ad_power.csv")
+write_csv(power_gwas, "/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_power_matti.csv")
 
 
 dat_loci_power <- ad_loci %>% 
@@ -69,7 +73,7 @@ dat_loci_power <- ad_loci %>%
     dir = ifelse(OR > 1, "risk", "protective"), 
     effect = ifelse(OR > 1, OR, 1/OR), 
     study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez"), 
-    ) 
+  ) 
 
 ggplot(power_gwas, aes(y = or, x = maf, color = study)) + 
   geom_line(lwd=0.25) + 
@@ -84,7 +88,7 @@ ggplot(power_gwas, aes(y = or, x = maf, color = study)) +
                                 "Wightman" = "#FF7F00", 
                                 "Bellenguez" = "#A65628")) + 
   theme_light()
-  
+
 ggplot(dat_loci_power, aes(x = gnomad_maf, y = effect, color = study)) + 
   geom_line(data = power_gwas, aes(y = or, x = maf, color = study), lwd=0.25) + 
   geom_point(alpha = 0.5) + 
@@ -130,10 +134,13 @@ ggsave("~/Downloads/AD_gwas_power.png", plot = gwas_power.p + theme(legend.posit
 # Sample size vs no. loci Plots
 adgwas.p <- adgwas %>%
   mutate(label = paste(study, year, sep = ", ")) %>%
-  select(label, n, neff, n_loci) %>%
+  select(label, n, effN, n_loci) %>%
   slice(1:6) %>%
-  pivot_longer(c("n", "neff"), names_to = "model", values_to = "sample_size") %>%
-  mutate(model = fct_recode(model, "Total n" = "n", "Effective n" = "neff"))
+  pivot_longer(c("n", "effN"), names_to = "model", values_to = "sample_size") %>%
+  mutate(
+  	model = fct_relevel(model, "n", "effN"),
+  	model = fct_recode(model, "Total n" = "n", "Effective n" = "effN")
+  )
 
 ad_nloci.p <- ggplot(adgwas.p, aes(x = n_loci, y = sample_size, label = label, color = label)) + 
   geom_point()  + 
@@ -153,12 +160,12 @@ ad_nloci.p <- ggplot(adgwas.p, aes(x = n_loci, y = sample_size, label = label, c
         strip.background = element_blank(),
         legend.position = "none", 
         axis.text.y = element_text(angle = 90, hjust = 0.5) 
-        )
+  )
 
 ad_nloci.p
 
 ## Plot Gardner
-png("~/Dropbox/Research/PostDoc-MSSM/Neurogenomics/plots/AD_gwas_power.png", 
+png("~/Dropbox/Research/PostDoc-MSSM/ADGenetics/plots/AD_gwas_power.png", 
     width = 9, height = 4.5, units = "in", res = 300)
 pageCreate(width = 9, height = 4.5, default.units = "inches")
 
