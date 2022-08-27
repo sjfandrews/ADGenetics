@@ -457,8 +457,8 @@ out <- other %>%
             by = "SNP") %>%
   left_join(select(loci_gvc, SNP, gvc_gene, gvc_dist), by = "SNP") %>%
   left_join(snpeff, by = c("SNP" = "snp")) %>%
-  mutate(locus_ld = as.numeric(locus_ld)) %>%
-  mutate(locus_ld = ifelse(locus_ld >= 88, locus_ld + 1, locus_ld))
+  mutate(locus_ld = as.numeric(locus_ld)) #%>%
+  #mutate(locus_ld = ifelse(locus_ld >= 88, locus_ld + 1, locus_ld))
 
 write_csv(out, "intermediate/ad_loci.csv")
 write_rds(ld, "intermediate/ad_ld.rds")
