@@ -1,0 +1,162 @@
+import os
+import pandas as pd 
+from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
+FTP = FTPRemoteProvider()
+
+rule all:
+    input:
+       "results/adgwas_loci.csv"
+
+rule munge:
+    input:
+        lambert = "resources/Lambert2013/www.nature.com 11_22_2019, 11_45_10 AM.pdf",
+        kunkle = "resources/Kunkle2019/Table1-2.pdf",
+        marioni = "resources/Marioni2018/Marioni2018_gws.txt",
+        jansen_table = "resources/Jansen2019/www.nature.com 11_25_2019, 7_56_44 AM.pdf",
+        jansen_ss = "resources/Jansen2019/Jansen2019_gws.txt",
+        wightman_table = "resources/Wightman2020/www.nature.com 02_10_2021, 15_58_50.pdf",
+        wightman_ss = "resources/Wightman2020/wightman_gws.txt",
+        bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
+    output:
+        lambert_out = "intermediate/lambert_loci.csv",
+        kunkle_out = "intermediate/kunkle_loci.csv",
+        marioni_out = "intermediate/marioni_loci.csv",
+        jansen_out = "intermediate/jansen_loci.csv",
+        wightman_out = "intermediate/wightman_loci.csv",
+        bellenguez_out = "intermediate/bellenguez_loci.csv",
+        other_out = "intermediate/other_loci.csv",
+    singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge.R"
+
+
+rule gwas_meta:
+    output: out = "intermediate/gwas_metadata.csv"
+    script: "scripts/gwas_meta.R"
+
+rule loci_list:
+    input: 
+        lambert = rules.munge.output.lambert_out,
+        kunkle = rules.munge.output.kunkle_out,
+        marioni = rules.munge.output.marioni_out,
+        jansen = rules.munge.output.jansen_out,
+        wightman = rules.munge.output.wightman_out,
+        bellenguez = rules.munge.output.bellenguez_out,
+        other = rules.munge.output.other_out,
+        meta = rules.gwas_meta.output
+    output:
+        out_vcf = "intermediate/adgwas_snps.vcf",
+        out_csv = "intermediate/adgwas_snps.csv",
+        out_tsv = "intermediate/adgwas_snpsall.tsv",
+        out_list = "intermediate/adgwas_variant_list.txt"
+    # conda: "envs/R.yaml"
+    script: "scripts/loci_list.R"
+
+rule download_gencode:
+    input:
+        FTP.remote("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/GRCh37_mapping/gencode.v40lift37.annotation.gtf.gz", keep_local=True)
+    output: 
+        gencode = "resources/ref/gencode.v40lift37.annotation.gtf.gz"
+    run:
+        shell("mv {input} ./resources/ref")
+
+rule gencode: 
+    input: 
+        gencode = rules.download_gencode.output.gencode, 
+        snps = rules.loci_list.output.out_csv
+    output:
+        outfile = "intermediate/adgwas_gencode.csv"
+    # conda: "envs/R.yaml"
+    script: 'scripts/gencode.R'
+
+rule dbsnp:
+    input:
+        snps = rules.loci_list.output.out_list
+    output:
+        outfile = "intermediate/adgwas_dbsnp.csv"
+    # conda: "envs/R.yaml"
+    script: 'scripts/dbsnp.R'
+
+rule extract_gnomad:
+    input:
+        snps = rules.loci_list.output.out_vcf, 
+        # ref = 'resources/ref/gnomad.genomes.r2.1.1.sites.vcf.bgz'
+    output:
+        "intermediate/adgwas_gnomad_af.vcf"
+    # conda: 'envs/bcftools.yaml'
+    # shell: "bcftools view -R {input.snps} -Ov -o {output} {input.ref}"
+    shell: "cp sandbox/intermediate/gnomad_af.vcf {output}"
+
+rule gnomad:
+    input:
+        gnomad = rules.extract_gnomad.output, 
+        snps = rules.loci_list.output.out_tsv
+    output:
+        outfile = "intermediate/adgwas_gnomad.csv"
+    # conda: "envs/R.yaml"
+    script: 'scripts/gnomad.R'
+
+rule merge_loci:
+    input:
+        snps = rules.loci_list.output.out_tsv
+    output:
+        unmerged_bed = "intermediate/adgwas_loci.bed",
+        outfile = "intermediate/adgwas_loci.csv"
+    # conda: "envs/R.yaml"
+    script: 'scripts/merge_loci.R'
+
+rule ldlinkr:
+    input:
+        snps = rules.loci_list.output.out_csv
+    output:
+        ld = "intermediate/adgwas_ld.rds",
+        tags = "intermediate/adgwas_tags.csv"
+    # conda: "envs/R.yaml"
+    script: 'scripts/LDlinkR.R'
+
+rule cytobands:
+    output:
+        out = "intermediate/cytobands.csv",
+    # conda: "envs/R.yaml"
+    script: 'scripts/cytobands.R'
+
+rule snpEff_ann:
+    input:
+        snps = rules.loci_list.output.out_vcf
+    output:
+         "intermediate/adgwas_loci.ann.vcf"
+    conda: "envs/snpeff.yaml"
+    shell: "snpEff -Xmx8g GRCh37.75 {input} > {output}"
+
+rule snpEff:
+    input: 
+        ann = rules.snpEff_ann.output
+    output:
+        outfile = "intermediate/adgwas_snpeff.csv"
+    # conda: "envs/R.yaml"
+    script: "scripts/snpEff.R"
+
+rule gvc:
+    input:
+        snps = rules.loci_list.output.out_csv, 
+        gencode = rules.download_gencode.output.gencode,
+    output:
+        outfile =  "intermediate/adgwas_gvc.csv"
+    # conda: "envs/R.yaml"
+    script: "scripts/gvc.R"
+  
+rule combine:
+    input:
+        adgwas = rules.loci_list.output.out_csv,
+        other = rules.munge.output.other_out,
+        tags = rules.ldlinkr.output.tags,
+        locus = rules.merge_loci.output.outfile,
+        bands = rules.cytobands.output,
+        dbsnp =  rules.dbsnp.output,
+        gnomad = rules.gnomad.output,
+        gencode = rules.gencode.output,
+        gvc = rules.gvc.output,
+        snpeff = rules.snpEff.output,
+    output:
+        outfile =  "results/adgwas_loci.csv"
+    # conda: "envs/R.yaml"
+    script: "scripts/combine.R"
