@@ -44,3 +44,5 @@ sandbox
 snpEff_*
 .snakemake
 *.gtf.gz
+Rplots.pdf
+plots/
