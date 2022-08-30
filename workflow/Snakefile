@@ -1,5 +1,5 @@
 # Snakemake workflow for munging AD GWAS plots 
-## snakemake --forceall --rulegraph | dot -Tpdf > images/dag.pdf
+## snakemake --forceall --rulegraph | dot -Tpng > images/dag.png
 
 import os
 import pandas as pd 
@@ -10,8 +10,9 @@ rule all:
     input:
        "results/adgwas_loci.csv", 
        "results/plots/adgwas_upset.png", 
+       "results/plots/Lancet_AD_GeneticArcht_Abs.png",
+       "results/plots/Lancet_AD_GeneticArcht_obs.png",
        "docs/Descriptives.html",
-        "intermediate/adgwas_power.csv"
 
 rule munge:
     input:
@@ -199,3 +200,14 @@ rule upset_plot:
     output:
         upset = "results/plots/adgwas_upset.png"
     script: "scripts/upset_plots.R"
+
+rule lancet_genetic_archt_plot:
+    input: 
+        loci = rules.combine.output,
+        meta = rules.gwas_meta.output,
+        power = rules.power_curves.output
+    output:
+        outpng_abs = "results/plots/Lancet_AD_GeneticArcht_Abs.png",
+        outpng_obs = "results/plots/Lancet_AD_GeneticArcht_obs.png"
+    script: "scripts/architecture_plots.R"
+

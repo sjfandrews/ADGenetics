@@ -20,3 +20,19 @@ ad_loci %>%
   # arrange(P) %>%
   # group_by(study) %>%
   distinct(locus, .keep_all = T) 
+
+
+ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  group_by(locus)
+
+ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  group_by(locus_ld)
+
+ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  group_by(study)  %>%
+  distinct(locus) %>%
+  ungroup() %>%
+  count(study)

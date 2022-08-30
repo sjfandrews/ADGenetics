@@ -91,14 +91,8 @@ out <- other %>%
   relocate(locus, cytoband, locus_ld) %>%
   mutate(
     ## Manual fixing missing data for rs139643391 & rs149080927
-    A1 = ifelse(SNP == "rs139643391", "TC", A1),
-    A2 = ifelse(SNP == "rs139643391", "T", A2),
-    FRQ = ifelse(SNP == "rs139643391", 0.131, FRQ),
-    OR = ifelse(SNP == "rs139643391", 0.94, OR),
-    global_maf = ifelse(SNP == "rs139643391", 0.087446, global_maf),
+    Minor = ifelse(SNP == "rs139643391", gnomad_minor, Minor),
     gnomad_maf = ifelse(SNP == "rs149080927", 0.3829, gnomad_maf),
-  ) %>%
-  mutate(
     ## Updating Reiman APOE loci
     gnomad_maf = ifelse(str_detect(SNP, "APOE"), FRQ, gnomad_maf),
     locus = ifelse(str_detect(SNP, "APOE"), apoe_locus$locus, locus),
@@ -160,14 +154,6 @@ out <- other %>%
 # Export
 message("\nExporting....", outfile, "\n")
 write_csv(out, outfile)
-
-
-
-
-
-
-
-
 
 
 

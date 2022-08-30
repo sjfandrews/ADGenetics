@@ -10,12 +10,15 @@ adgwas <- tribble(
   "Jansen", 2019, NA, 455258, NA, (24087 + 47793), (55058 + 328320), 29, NA, NA, NA,
   "Wightman", 2021, NA, 1126563, NA, 90338, 1036225, 38, NA, NA, NA,
   "Bellenguez", 2022, NA, 528781, NA, (39106 + 46828 + 25392), (401577 + 276086), 75, NA, NA, NA,
+  # "Lake", 2023, NA, 644188, NA, (54233 + 46828), 543127, NA, NA, NA, NA,
+  "Future1", 2050, NA, 500000, NA, 250000, 250000, NA, NA, NA, NA,
+  "Future2", 2100, NA, 1000000, NA, 500000, 500000, NA, NA, NA, NA,
 ) %>% 
   mutate(
   	effN = 4 / ((1/n_ca) + (1/n_cn)), 
 	phi = n_ca/n,
 	neff = n*phi*(1-phi)
-  ) 
+  )
 
 ################# Draw curves indicating the effect size needed across different MAF threshols
 
@@ -27,12 +30,12 @@ p.threshold = 5e-8
 q = qchisq(p.threshold, df = 1, lower = F) 
 
 # Sequence of frequencies from min MAF to 0.5
-f = seq(0.0001, 0.5, length = 5000) 
+f = c(seq(0.0000001, 0.01, length = 1000), seq(0.01, 0.5, length = 500)) 
 # Sequence of effect sizes from min beta to max beta
-b = seq(0, 4, length = 5000)    
+b = seq(0, 4, length = 1500)    
 
 
-out <- list(NULL, NULL, NULL, NULL, NULL, NULL) %>% 
+out <- list(NULL, NULL, NULL, NULL, NULL, NULL,  NULL, NULL) %>% 
   magrittr::set_names(adgwas$study)
 
 for(z in 1:nrow(adgwas)){
@@ -57,7 +60,7 @@ for(z in 1:nrow(adgwas)){
 
 power_gwas <- bind_rows(out) %>%
   mutate(
-    study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez")
+    study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez", "Future1", "Future2")
   )
 
 write_csv(power_gwas, "/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_power_matti.csv")
@@ -77,9 +80,9 @@ dat_loci_power <- ad_loci %>%
 
 ggplot(power_gwas, aes(y = or, x = maf, color = study)) + 
   geom_line(lwd=0.25) + 
-  scale_x_continuous(trans='log10', breaks = c(0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.0001, 0.5)) + 
+  scale_x_continuous(trans='log10', breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
+                     labels = c("0.00001", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
+                     limits = c(0.00001, 0.5)) + 
   scale_y_continuous(trans='log10') + 
   scale_color_manual(values = c("Lambert" = "#1F78B4",
                                 "Kunkle" = "#33A02C",

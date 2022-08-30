@@ -19,7 +19,7 @@ calc_beta_from_z_n_freq = function(Z, FRQ, N){
 }
 
 ## Lambert 2013
-lambert_raw <- extract_tables("resources/www.nature.com 11_22_2019, 11_45_10 AM.pdf")
+lambert_raw <- extract_tables("resources/Lambert2013/www.nature.com 11_22_2019, 11_45_10 AM.pdf")
 lambert_clean <- as_tibble(lambert_raw[[1]]) %>% 
   slice(-c(1,2,3,4,23,34)) %>%
   select(V1:V5, V12:V13) %>%
