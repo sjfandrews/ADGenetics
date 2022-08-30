@@ -285,6 +285,7 @@ print(wightman, n = Inf)
 
 ## Bellenguez 2022 
 message("\nMunging Bellenguez 2022\n")
+### Adding APOE locus added manually from Kunkle summary statistics 
 
 bellenguez_raw <- extract_tables(bellenguez.path)
 
@@ -313,13 +314,16 @@ bellenguez_clean <- bind_rows(
          pos = as.numeric(pos), 
          beta = log(or), 
          se = calc_se_from_beta_and_l95(or, l95)) %>%
-  arrange(chr, pos) %>%
+  add_row(snp = "rs429358", chr = 19, pos = 44908684, gene = "APOE", locus = "APOE", 
+          effectAllele = "C", otherAllele = "T", maf = '0.216', 
+          or = 3.32, l95 = 3.20, u95 = 3.45, p = 1.2e-881, beta = 1.199, se = 0.019) %>%
   read_sumstats( .,
                  standardise_headers = T,
                  mapping_file = sumstatsColHeaders
   ) %>%
   as_tibble() %>%
-  mutate(CHR = as.numeric(CHR))
+  mutate(CHR = as.numeric(CHR)) %>%
+  arrange(CHR, BP)
   
 bellenguez_munged <- MungeSumstats::format_sumstats(path=bellenguez_clean, 
                                          ref_genome="GRCh38", 
@@ -332,7 +336,8 @@ bellenguez_munged <- MungeSumstats::format_sumstats(path=bellenguez_clean,
                                          force_new = TRUE) %>%
   as_tibble() %>%
   mutate(CHR = as.numeric(CHR))
-  
+
+### update BP for SNPs not lifted over  
 bellenguez <- bellenguez_munged %>% 
   bind_rows(anti_join(bellenguez_clean, ., by = "SNP")) %>%
   mutate(BP = case_when(
