@@ -1,3 +1,6 @@
+# Snakemake workflow for munging AD GWAS plots 
+## snakemake --forceall --rulegraph | dot -Tpdf > images/dag.pdf
+
 import os
 import pandas as pd 
 from snakemake.remote.FTP import RemoteProvider as FTPRemoteProvider
@@ -5,7 +8,10 @@ FTP = FTPRemoteProvider()
 
 rule all:
     input:
-       "results/adgwas_loci.csv"
+       "results/adgwas_loci.csv", 
+       "results/plots/adgwas_upset.png", 
+       "docs/Descriptives.html",
+        "intermediate/adgwas_power.csv"
 
 rule munge:
     input:
@@ -28,10 +34,25 @@ rule munge:
     singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
     script: "scripts/munge.R"
 
+# rule munge_bellenguez:
+#     input:
+#         bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
+#     output:
+#         bellenguez_out = "intermediate/bellenguez_loci.csv",
+#     singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+#     script: "scripts/munge_bellenguez.R"
 
 rule gwas_meta:
     output: out = "intermediate/gwas_metadata.csv"
     script: "scripts/gwas_meta.R"
+
+rule power_curves:
+    input:
+        meta = rules.gwas_meta.output
+    output:
+        power_curves = "intermediate/adgwas_power.csv"
+    # conda: "envs/R.yaml"
+    script: "scripts/power_curves.R"
 
 rule loci_list:
     input: 
@@ -160,3 +181,21 @@ rule combine:
         outfile =  "results/adgwas_loci.csv"
     # conda: "envs/R.yaml"
     script: "scripts/combine.R"
+
+rule descriptives: 
+    input: 
+        ss = rules.combine.output,
+        meta = rules.gwas_meta.output
+    params:
+        TableS1 = "docs/TableS1.csv"
+    output:
+        html = "docs/Descriptives.html",
+    script: "scripts/descriptives.Rmd"
+
+rule upset_plot:
+    input:
+        loci = rules.combine.output,
+        meta = rules.gwas_meta.output
+    output:
+        upset = "results/plots/adgwas_upset.png"
+    script: "scripts/upset_plots.R"

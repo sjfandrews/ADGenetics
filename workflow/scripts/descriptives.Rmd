@@ -1,0 +1,196 @@
+---
+title: "AD Genetics Descriptives"
+output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+author:
+    - "Shea Andrews"
+params:
+    rmd: "report.Rmd"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(janitor)
+library(tibble)
+library(glue)
+library(stringr)
+library(readr)
+library(forcats)
+library(glue)
+library(readxl)
+# library(DT)
+`%nin%` = negate(`%in%`)
+
+```
+
+
+```{r import, echo = F, include=F}
+ad_loci.path = "results/adgwas_loci.csv"
+adgwas_meta.path = "intermediate/gwas_metadata.csv"
+
+ad_loci.raw <- read_csv(ad_loci.path)
+adgwas_meta <- read_csv(adgwas_meta.path)
+
+#Export
+TableS1.path = snakemake@params[['TableS1']]
+
+```
+
+
+```{r, echo = F}
+ad_loci <- ad_loci.raw %>%
+  filter(study %nin% c("Jonsson", "Reiman")) %>%
+  select(locus, cytoband, locus_ld, Gene = gencode_gene, SNP, CHR, BP, A1, A2, FRQ = global_af, OR, P, study) %>%
+  mutate(
+    FRQ = signif(FRQ, 3),
+    OR = signif(OR, 3),
+  )
+
+write_csv(ad_loci, TableS1.path)
+```
+
+```{r}
+bellenguez_supp.path = "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
+bst20_raw <- readxl::read_xlsx(bellenguez_supp.path, sheet = 21, skip = 2) %>%
+  janitor::clean_names()
+
+bst20 <- bst20_raw %>%
+  select(locus, gene, gene_prioritization_tier) %>% 
+  filter(gene_prioritization_tier %in% c("Tier 1", "Tier 2")) 
+
+wightman_supp.path = "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
+wst11 <- readxl::read_xlsx(wightman_supp.path, sheet = 11, skip = 1) %>%
+  janitor::clean_names()
+
+ bst20 %>% filter(gene_prioritization_tier == "Tier 1")  %>%
+   print(n = Inf)
+
+```
+
+
+```{r, echo=F, include=F}
+## Distinct loci across all studies
+n_distinct(ad_loci$locus)
+n_distinct(ad_loci$locus_ld)
+
+## Old loci priort to Bellenguez and Wightman
+known_loci <- ad_loci %>%
+  filter(study %nin% c("Bellenguez", "Wightman"))
+
+## 42 novel loci discovered by Bellenguez and Whightman
+novel_loci <- ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  anti_join(known_loci, by = "locus") %>%
+  # arrange(P) %>%
+  # group_by(study) %>%
+  distinct(locus, .keep_all = T) 
+
+nrow(novel_loci)
+novel_loci %>% count(study)
+
+# Number of loci in B & W 
+n_loci <- ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  group_by(locus)
+
+n_distinct(n_loci$locus)
+
+# Number of loci per study
+n_loci_study <- ad_loci %>%
+  group_by(study)  %>%
+  distinct(locus) %>%
+  ungroup() %>%
+  count(study)
+
+n_loci_study
+ 
+# Number of independent variants
+n_variants <- ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  group_by(locus_ld)
+
+n_distinct(n_variants$locus_ld)
+
+# Number of independent variants per study
+n_variants_study <- ad_loci %>%
+  group_by(study)  %>%
+  distinct(locus_ld) %>%
+  ungroup() %>%
+  count(study)
+
+n_variants_study
+
+```
+
+## Genetic loci associated with Alzheimer’s disease
+
+Wightman et al expanded the sample size of their GWAS to `r filter(adgwas_meta, study == 'Wightman') %>% pull(n)` 
+people (`r `filter(adgwas_meta, study == 'Wightman') %>% pull(n_ca)` cases, 
+`r NULL` proxy-cases, `r filter(adgwas_meta, study == 'Wightman') %>% pull(n_cn)` controls/proxy-controls). 
+
+
+Bellenguez et al expanded their earlier GWAS to `r filter(adgwas_meta, study == 'Bellenguez') %>% pull(n)` 
+people (`r filter(adgwas_meta, study == 'Bellenguez') %>% pull(n_ca)` cases, 
+`r filter(adgwas_meta, study == 'Bellenguez') %>% pull(n_pca)` proxy cases, and 
+`r filter(adgwas_meta, study == 'Bellenguez') %>% pull(n_cn)` controls/proxy-controls)
+
+
+Together, Wightman et al and Bellenguez et al identified `r n_distinct(n_variants$locus_ld)` independent variants 
+across `r n_distinct(n_loci$locus)` loci 
+(`r filter(n_loci_study, study == "Wightman") %>% pull(n)` and `r filter(n_loci_study, study == "Bellenguez") %>% pull(n)` 
+respectively) associated with AD, 34 of which were identified by both studies and `r nrow(novel_loci)` which are novel loci.
+
+
+With GWAS collectively discovering `r n_distinct(ad_loci$locus)` loci 
+(`r n_distinct(ad_loci$locus_ld)` independent variants) associated with AD/dementia 
+in European ancestry populations (Figure 2), how many more novel loci remain to be discovered?
+
+
+```{r, echo = F}
+DT::datatable(ad_loci, rownames = F, filter='top')
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
