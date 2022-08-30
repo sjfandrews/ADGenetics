@@ -82,6 +82,8 @@ n_distinct(ad_loci$locus_ld)
 known_loci <- ad_loci %>%
   filter(study %nin% c("Bellenguez", "Wightman"))
 
+n_distinct(known_loci$locus)
+
 ## 42 novel loci discovered by Bellenguez and Whightman
 novel_loci <- ad_loci %>%
   filter(study %in% c("Bellenguez", "Wightman")) %>%

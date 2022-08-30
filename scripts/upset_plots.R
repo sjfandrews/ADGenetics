@@ -8,9 +8,46 @@ library(GGally)
 setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/")
 
 ad_loci <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_loci.csv")
+adgwas.raw <- read_csv("intermediate/ad_gwas_meta_data.csv")
 
-ad_genes <- select(ad_loci, study, locus, CHR, BP, P, gencode_gene, gvc_gene) %>%
-  mutate(gene = ifelse(is.na(gvc_gene), gencode_gene, gvc_gene), 
+theme.size = 8
+geom.text.size = (theme.size - 2) * 0.36
+
+## AD GWAS meta data 
+adgwas <- adgwas.raw %>% 
+  filter(study %nin% c("Naj", "Corder", "Jonsson")) %>%
+  mutate(
+    study = fct_relevel(study, c("Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez")), 
+    n = n - neff,
+    ) %>%
+  select(study, year, neff, n) %>%
+  pivot_longer(c("neff", "n"), names_to = "model", values_to = "size") 
+
+adgwas_ss.p <- ggplot(adgwas, aes(x = size, y = study, fill = model)) + 
+  geom_bar(stat="identity") + 
+  scale_fill_manual(values = c("black", "orange"), labels = c("Total", "Effective")) +
+  labs(x = "Sample Size")  + 
+  theme_classic() +  
+  scale_x_reverse(breaks = c(300000, 600000, 900000), labels = c("300k", "600k", "900k")) + 
+  # guides(fill = guide_legend(override.aes = list(size = 4))) + 
+  theme(
+    text = element_text(size = theme.size), 
+    axis.title.y=element_blank(), 
+    axis.text.y=element_blank(), 
+    axis.ticks.y=element_blank(), 
+    legend.title = element_blank(), 
+    legend.position=c(0.2, 0.2), 
+    legend.key.size = unit(0.25, 'cm'),
+    axis.line.y = element_blank()
+  )
+
+adgwas_ss.p
+
+## AD Loci
+ad_genes <- select(ad_loci, study, locus, CHR, BP, P, GENE, gencode_gene, gvc_gene) %>%
+  filter(study %nin% c("Jonsson", "Reiman")) %>%
+  mutate(gene = GENE,
+         gene = ifelse(is.na(gvc_gene), gencode_gene, gvc_gene), 
          y = case_when(
            study == "Lambert" ~ 1, 
            study == "Marioni" ~ 2, 
@@ -50,77 +87,74 @@ upset.dat <- ad_loci %>%
            study == "Wightman" ~ 5, 
            study == "Bellenguez" ~ 6, 
          ), 
-         y_text = 1
-         )
+         y_text = 1,
+         )  %>%
+  separate(locus, into = c("chr", "start", "end")) %>%
+  mutate(start = round(as.numeric(start) / 1000000, 2), 
+         end = round(as.numeric(end) / 1000000, 2), 
+         locus = glue("{chr}:{start}-{end}")
+  )
+  
 
-trem2 <- filter(upset.dat, CHR ==  6, BP == 41129207)  
 
 upset.sig <- upset.dat %>%
   group_by(study, locus) %>%
   summarize(n_sig = sum(sig), gene = first(gene)) %>%
-  ungroup()
+  ungroup() %>%
+  # filter(n_sig > 1) %>%
+  left_join(upset.dat)
 
 upset_lines <- upset.dat %>%
   filter(sig == T) %>%
   group_by(locus) %>%
   slice(which.min(study), which.max(study)) %>%
-  select(study, locus, gene, label) %>%
+  select(study, locus, x, label) %>%
   mutate(pos = c("start", "end")) %>%
   ungroup() %>%
   pivot_wider(names_from = pos, values_from = study)
 
 ## Plots 
-theme.size = 8
-geom.text.size = (theme.size - 2) * 0.36
-
-upset.p <- ggplot(upset.dat, aes(y = study, x = gene, color = sig)) + 
+### Upsent plot showing common loci
+upset.p <- ggplot(upset.dat, aes(y = study, x = x)) + 
+  geom_point(data = upset.sig %>% filter(n_sig == 0), aes(y = study, x = x), color = "grey90") + 
+  geom_segment(data = upset_lines, aes(x = x, y = start, xend = x, yend = end, colour = "segment")) +
   geom_stripped_rows(colour = "NA") +
-  # geom_stripped_cols(colour = "NA") +
-  geom_point() +
-  # geom_point(data = trem2, aes(y = study, x = gene), color = "red") +
-  geom_segment(data = upset_lines, aes(x = gene, y = start, xend = gene, yend = end, colour = "segment")) +
+  # geom_point(data = upset.sig %>% filter(n_sig > 1), aes(y = study, x = x + 0.2), color = "#ef3b2c") + 
+  geom_point(data = upset.sig %>% filter(n_sig > 1), aes(y = study, x = x), 
+             shape = 21, fill = "#ef3b2c", color = 'black', stroke = 1) + 
+  geom_point(data = upset.sig %>% filter(n_sig == 1), aes(y = study, x = x), color = "black") +
+  # geom_point() +
   theme_light() + 
-  scale_color_manual(values = c("grey75", "black", "black")) + 
+  scale_color_manual(values = c("black", "black", "black")) + 
   labs(x = "locus") + 
+  scale_x_continuous(breaks = unique(upset.dat$x),
+                     labels = unique(upset.dat$gene),
+                     ) + 
+  coord_cartesian(xlim=c(4,78)) +
   theme(
-    text = element_text(size = theme.size, family = "sans"),
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0), 
-    axis.title.y = element_blank(), 
-    axis.title.x = element_blank(), 
-    panel.grid.major.y = element_blank(),
-    panel.grid.major.x = element_blank(),
-    legend.position = "none"
-  )
-
-upset.p
-
-upset.p <- ggplot(upset.sig, aes(y = study, x = gene, color = as.factor(n_sig))) + 
-  geom_stripped_rows(colour = "NA") +
-  # geom_stripped_cols(colour = "NA") +
-  geom_point(data = filter(upset.sig, n_sig == 0), aes(y = study, x = gene, color = as.factor(n_sig))) +
-  geom_segment(data = upset_lines, aes(x = gene, y = start, xend = gene, yend = end, colour = "segment")) +
-  geom_point(data = filter(upset.sig, n_sig > 0), aes(y = study, x = gene, color = as.factor(n_sig))) +
-  # geom_point(data = trem2, aes(y = study, x = gene), color = "red") +
-  scale_color_manual(values = c("grey75", "black", "#fcae91", "#fb6a4a", "black", "#cb181d")) + 
-  theme_light() + 
-  labs(x = "locus") + 
-  theme(
-    text = element_text(size = theme.size, family = "sans"),
+    text = element_text(
+      size = theme.size, 
+      # family = "sans"
+      ),
+    # axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0,
+    #                            face=ifelse(is.na(ad_genes$gvc_gene),"plain","bold")),
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0),
     axis.title.y = element_blank(),
     axis.title.x = element_blank(),
     panel.grid.major.y = element_blank(),
     panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
     legend.position = "none"
   )
 
 upset.p
 
-
+### Locus labels 
 locus.p <- ggplot(upset.dat, aes(y = y_text, x = label)) + 
   geom_text(data = upset.dat, aes(y = y_text, x = label, label = locus), 
             angle = 90, vjust = 0.5, hjust = 1, size = geom.text.size, 
-            family = "sans", color = "grey30") +
+            # family = "sans", 
+            color = "grey30") +
   # geom_text(data = test, aes(y = y_text+0.1, x = label, label = gene),
   #           angle = 90, vjust = 0.5, hjust = 0, size = geom.text.size,
   #           family = "sans", color = "grey30") +
@@ -142,31 +176,15 @@ locus.p <- ggplot(upset.dat, aes(y = y_text, x = label)) +
 
 locus.p
 
-test_rect <- tribble(
-  ~study, ~xmin, ~xmax, ~ymin, ~ymax, 
-  "Lambert", -Inf, Inf, -Inf, 1.5,
-  "Jansen",  -Inf, Inf, 2.5, 3.5,
-  "Wightman", -Inf, Inf, 4.5, 5.5,
-)
-
-test %>% 
-  group_by(study) %>%
-  summarise(xmin = min(x), xmax = max(x), ymin = min(y), ymax = max(y))
-
-ggplot(aes(x = c(1:86))) + 
-  geom_rect(data = test_rect, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax),
-            fill = "grey75", color = "grey75", alpha=0.5, stat="identity") +
-  geom_point() +
-  geom_segment(data = test_lines, aes(x = label, y = start, xend = label, yend = end, colour = "segment"))
-  
-
+# Export Plot
 png("~/Dropbox/Research/PostDoc-MSSM/Neurogenomics/plots/AD_upset2.png", width = 9, height = 4.5, units = "in", res = 300)
+png("~/Downloads/AD_upset3.png", width = 9, height = 4.5, units = "in", res = 300)
 pageCreate(width = 9, height = 3.5, default.units = "inches")
 
 plotGG(
   plot = locus.p,
-  x = 0.46, y = 1.55,
-  width = 8.54, height = 2.5, just = c("left", "top")
+  x = 0.48, y = 1.55,
+  width = 8.52, height = 2.5, just = c("left", "top")
 )
 
 plotGG(
@@ -178,8 +196,32 @@ plotGG(
 pageGuideHide()
 dev.off()
 
+## Sample size + upset plot
+png("~/Dropbox/Research/PostDoc-MSSM/ADGenetics/plots/AD_upset3.png", width = 9, height = 4.5, units = "in", res = 300)
+pageCreate(width = 9, height = 3.5, default.units = "inches")
+
+plotGG(
+  plot = adgwas_ss.p,
+  x = 0, y = 0,
+  width = 1.6, height = 1.75, just = c("left", "top")
+)
 
 
+plotGG(
+  plot = locus.p,
+  x = 1.98, y = 1.44,
+  width = 7, height = 2.5, just = c("left", "top")
+)
+
+
+plotGG(
+  plot = upset.p,
+  x = 1.5, y = 0,
+  width = 7.5, height = 2, just = c("left", "top")
+)
+
+pageGuideHide()
+dev.off()
 
 
 

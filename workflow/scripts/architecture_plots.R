@@ -1,98 +1,85 @@
-library(tidyverse)
+# Genetic Architecture of Alzheimer's disease 
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(janitor)
+library(tibble)
+library(glue)
+library(stringr)
+library(readr)
+library(forcats)
 library(glue)
 library(ggrepel)
 library(plotgardener)
 `%nin%` = negate(`%in%`)
 
-setwd("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADgenetics/")
+## Snakemake
+### Input 
+adgwas_loci.path = "results/adgwas_loci.csv"
+adgwas_meta.path = "intermediate/gwas_metadata.csv"
+adgwas_power.path = "intermediate/adgwas_power.csv"
 
-ad_loci <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_loci.csv")
-adgwas <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_gwas_meta_data.csv")
+adgwas_loci.path = snakemake@input[['loci']]
+adgwas_meta.path = snakemake@input[['meta']]
+adgwas_power.path = snakemake@input[['power']]
 
-## AD GWAS Loci Plots
+### Output
+outfile_abs.path = snakemake@output[['outpng_abs']]
+outfile_obs.path = snakemake@output[['outpng_obs']]
 
-genes_to_plot <- c("ABCA7", "ABCA1", "TREM2", "APOE", "SIGLEC11", "GRN", "ABI3", "PLCG2", "BIN1", "CD2AP", "EED", "SPI1", 
-"PTK2B", "CLU", "CASS4", "BLNK", "NCK2", "RIN3", "MS4A", "CD33", "PILRA", "CTSB", "CTSH", "APP")
+## Import Dataset
+message(
+  "\nImporting: ",
+  "\n\t", adgwas_loci.path,
+  "\n\t", adgwas_meta.path,
+  "\n\t", adgwas_power.path, 
+  "\n"
+)
 
-ad_loci %>% 
-  left_join(adgwas, by = "study") %>%
-  group_by(locus) %>%
-  arrange(-neff) %>%
-  slice(1) %>%
-  ungroup() %>%
-  filter(., annotation_impact %in% c("HIGH", "LOW", "MODERATE")) %>% 
-  filter(gnomad_maf < 0.05) %>% 
-  select(locus, cytoband, SNP, CHR, BP, Major, Minor, allele, gnomad_maf, OR, P, gencode_gene, gvc_gene, gene_name, annotation, annotation_impact, hgvs_p) 
-  
-apoe_locus <- ad_loci %>% filter(SNP == "rs429358") %>% slice(1) %>% select(locus, locus_ld)
-  
-dat_loci <- ad_loci %>% 
+adgwas_loci <- read_csv(adgwas_loci.path)
+adgwas_meta <- read_csv(adgwas_meta.path)
+adgwas_power <- read_csv(adgwas_power.path)
+
+## Wrangle AD GWAS Loci datasets
+
+### Gene labels to plot 
+### Select variant with largest effective sample size in each locus 
+### Remove APOE SNPS locus from AD datasets 
+apoe_locus <- adgwas_loci %>% filter(SNP == "rs429358") %>% slice(1) %>% select(locus, cytoband, locus_ld)
+
+adgwas_variants <- adgwas_loci %>% 
+  # filter(study %in% c("Bellenguez", "Jonsson", "Reiman")) %>%
   arrange(locus_ld) %>% 
   mutate(locus_ld = ifelse(is.na(locus_ld), row(.), locus_ld)) %>%
-  left_join(adgwas, by = "study") %>%
+  left_join(adgwas_meta, by = "study") %>%
   group_by(locus_ld) %>%
   arrange(-neff) %>%
   slice(1) %>%
   ungroup() %>% 
-  filter(locus %nin% "chr19:44851516-46741841") %>%
-  mutate( # TOFIX 
-    OR = ifelse(SNP == "rs139643391", exp(-0.0619), OR),
-    gnomad_maf = ifelse(SNP == "rs149080927", 0.3829, gnomad_maf),
-    gnomad_maf = ifelse(str_detect(SNP, "APOE"), FRQ, gnomad_maf),
-    locus = ifelse(str_detect(SNP, "APOE"), apoe_locus$locus, locus),
-    locus_ld = ifelse(str_detect(SNP, "APOE"), apoe_locus$locus_ld, locus_ld)
-    ) %>%
-  mutate(
-    hgvs_p = str_replace(hgvs_p, "p.", ""),
-    hgvs_p = str_replace_all(hgvs_p, "Ala", "A"),
-    hgvs_p = str_replace_all(hgvs_p, "Cys", "C"),
-    hgvs_p = str_replace_all(hgvs_p, "Asp", "D"),
-    hgvs_p = str_replace_all(hgvs_p, "Glu", "E"),
-    hgvs_p = str_replace_all(hgvs_p, "Phe", "F"),
-    hgvs_p = str_replace_all(hgvs_p, "Gly", "G"),
-    hgvs_p = str_replace_all(hgvs_p, "His", "H"),
-    hgvs_p = str_replace_all(hgvs_p, "ILE", "I"),
-    hgvs_p = str_replace_all(hgvs_p, "Lys", "K"),
-    hgvs_p = str_replace_all(hgvs_p, "Leu", "L"),
-    hgvs_p = str_replace_all(hgvs_p, "Met", "M"),
-    hgvs_p = str_replace_all(hgvs_p, "Asn", "N"),
-    hgvs_p = str_replace_all(hgvs_p, "Pro", "P"),
-    hgvs_p = str_replace_all(hgvs_p, "Gln", "Q"),
-    hgvs_p = str_replace_all(hgvs_p, "Arg", "R"),
-    hgvs_p = str_replace_all(hgvs_p, "Ser", "S"),
-    hgvs_p = str_replace_all(hgvs_p, "Thr", "T"),
-    hgvs_p = str_replace_all(hgvs_p, "Val", "V"),
-    hgvs_p = str_replace_all(hgvs_p, "Trp", "W"),
-    hgvs_p = str_replace_all(hgvs_p, "Tyr", "Y"),
-  ) %>%
-  separate(hgvs_p, into = c("p1", "p2"),  sep = "\\d{1,4}", remove = F) %>%
-  mutate(aa = str_extract(hgvs_p,"\\d{1,4}"), 
-         hgvs_p_new = case_when(
-           Minor == allele ~ glue("{p1}{aa}{p2}"),
-           Minor != allele ~ glue("{p2}{aa}{p1}")
-         )
-  ) %>%
+  filter(locus %nin% apoe_locus$locus) %>%
+  bind_rows(filter(adgwas_loci, str_detect(SNP, "APOE")))
+
+### Wrangling data for plotting 
+### Lable rare variants with amino acid change, else selected gene lables
+### Absolute effect sizes, direction, and architecture space
+genes_to_plot <- c("ABCA7", "ABCA1", "TREM2", "APOE", "SIGLEC11", "GRN", "ABI3", "PLCG2", "BIN1", "CD2AP", "EED", "SPI1", 
+                   "PTK2B", "CLU", "CASS4", "BLNK", "NCK2", "RIN3", "MS4A", "CD33", "PILRA", "CTSB", "CTSH", "APP")
+
+dat.p <- adgwas_variants %>%
   mutate(
     label = case_when(
       annotation_impact %in% c("HIGH", "LOW", "MODERATE") & gnomad_maf < 0.05 &  GENE %in% genes_to_plot ~ glue("{gene_name} {hgvs_p_new}"),
       str_detect(GENE, "APOE") ~ GENE, 
-      GENE %in% genes_to_plot ~ GENE
+      GENE %in% genes_to_plot ~ GENE, 
       # !is.na(gvc_gene) ~ gvc_gene,
-    ),
-    OR = ifelse(SNP == "rs429358", 3.6, OR),
+    ), 
+    label = ifelse(is.na(label), "", label),
     dir = ifelse(OR > 1, "risk", "protective"), 
     effect = ifelse(OR > 1, OR, 1/OR),
+    size = ifelse(effect < 1.2, 1, effect),
     category=cut(effect, breaks=c(1, 1.1, 1.2, 1.3, 1.5, 2, 2.5, 3, 3.5, Inf), 
                  labels=c("1-1.1","1.1-1.2","1.2-1.3","1.3-1.5","1.5-2", "2-2.5", "2.5-3", "3-3.5", ">4")),
     architecture = case_when(
-      (OR >= 1.6 | OR <= 0.6) & gnomad_maf < 0.001 ~ "Rare, Moderate",
-      (OR >= 1.6 | OR <= 0.6) & gnomad_maf < 0.05 ~ "Low, Moderate",
-      (OR < 1.6 & OR > 0.6) & gnomad_maf < 0.05 ~ "Low, Low",
-      (OR > 1.6 | OR < 0.6) & gnomad_maf > 0.05 ~ "Common, High",
-      (OR < 1.6 & OR > 0.6) & gnomad_maf > 0.05 ~ "Common, Low",
-      TRUE ~ NA_character_
-    ), 
-    architecture2 = case_when(
       gnomad_maf > 0.05 &  effect > 3 ~ "Common, High",
       gnomad_maf > 0.05 &  between(effect, 1.5, 3) ~ "Common, Intermediate",
       gnomad_maf > 0.05 &  between(effect, 1.1, 1.5) ~ "Common, Moderate",
@@ -110,44 +97,13 @@ dat_loci <- ad_loci %>%
       gnomad_maf < 0.001 &  between(effect, 1.1, 1.5) ~ "Very Rare, Moderate",
       gnomad_maf < 0.001 &  effect < 1.1 ~ "Very Rare, Low",
       TRUE ~ NA_character_
-      ),
-    snpeff = case_when(
-      (OR < 1.3 & OR > 0.75) & gnomad_maf > 0.05 ~ "Low effect size common variant",
-      annotation == "downstream_gene_variant" ~ 'intergenic_region',
-      annotation == "upstream_gene_variant" ~ 'intergenic_region',
-      annotation == "regulatory_region_variant" ~ 'intergenic_region',
-      annotation == "intron_variant,non_coding_transcript_variant" ~ 'intron_variant',
-      annotation == "3_prime_UTR_variant" ~ 'UTR_variant',
-      annotation == "5_prime_UTR_variant" ~ 'UTR_variant',
-      annotation == "stop_gained" ~ 'missense_variant',
-      annotation == "conservative_inframe_deletion" ~ 'missense_variant',
-      TRUE ~ annotation
-    ),
-  ) 
- 
-filter(dat.p, architecture != "Other") %>% select(SNP, GENE, OR, FRQ, architecture)
-filter(dat.p, str_detect(GENE, "APOE")) %>% select(SNP, OR, FRQ, architecture)
+      )
+    ) %>% 
+  select(SNP, CHR, BP, GENE, gnomad_maf, OR, label, architecture, 
+         annotation, annotation_impact, dir, size, effect, cytoband, locus, locus_ld, study) 
 
-filter(dat.p, (OR >= 1.3 | OR <= 0.75) & FRQ <= 0.05)
-filter(dat.p, (OR < 1.3 & OR > 0.75) & FRQ < 0.05)
-filter(dat.p, between(OR, 1.3, 0.75) & FRQ < 0.05)
-filter(dat.p, (OR > 1.3 | OR < 0.75) & FRQ > 0.05)
-filter(dat.p, (OR < 1.3 & OR > 0.75) & FRQ > 0.05)
-
-filter(dat.p, GENE == "SORL1")
-filter(dat.p, str_detect(GENE, "TMEM106B"))
-filter(dat.p, architecture == "Low frequency, Small effect") %>%
-  select(SNP, GENE, FRQ, OR, study)
-
-dat_loci %>% 
-  select(locus, cytoband, locus_ld, SNP, CHR, BP, A1, A2, GENE, gnomad_maf, OR, label, architecture, architecture2, annotation, annotation_impact, dir, effect, study, gencode_gene, gencode_dist, gvc_gene, gvc_dist) %>%
-  filter(!is.na(gvc_gene)) %>%
-  group_split(gvc_gene)
-
-################# Draw curves indicating the effect size needed across different MAF threshols
-power.raw <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_power_matti.csv") 
-
-power.dat <- power.raw %>%
+## Wrangle Power Curve datases 
+power.dat <- adgwas_power %>%
   arrange(maf) %>%
   mutate(inv_or = 1/or, 
          fill = "fill") %>% 
@@ -158,60 +114,10 @@ power.dat <- power.raw %>%
   distinct(maf, or, .keep_all = T) %>%
   ungroup()
   
- 
-test <- select(power.dat, maf, or, study) %>% 
-  pivot_wider(names_from = study, values_from = or) 
-
-ggplot(test, aes(y = Bellenguez, x = maf)) + 
-  geom_line(data = test, aes(y = Bellenguez), lwd=0.25, color ="grey70") + 
-  geom_line(data = test, aes(y = Lambert), lwd=0.25, color ="grey70") + 
-  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or), 
-              aes(ymin = Bellenguez, ymax = Lambert), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.00001", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.00001, 0.5)) + 
-  scale_y_continuous(trans='log10') + 
-  theme_light()
-  
-  
-ggplot(power.dat, aes(y = or, x = maf)) + 
-  geom_line(data = filter(power.dat, study == "Bellenguez"), lwd=0.25, color ="grey70") + 
-  geom_line(data = filter(power.dat, study == "Lambert"), lwd=0.25, color ="grey70") + 
-  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez), 
-              aes(ymin = or, ymax = Lambert), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.0001, 0.5)) + 
-  scale_y_continuous(trans='log10') + 
-  theme_light()
-
-ggplot(power.dat, aes(y = or, x = maf)) + 
-  geom_line(data = filter(power.dat, study == "Bellenguez"), lwd=0.25, color ="grey70") + 
-  # geom_line(data = filter(power.dat, study == "Future1"), lwd=0.25, color ="grey70") + 
-  geom_line(data = filter(power.dat, study == "Future2"), lwd=0.25, color ="grey70") + 
-  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez),
-              aes(ymin = or, ymax = Future2, alpha = maf), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.00001", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.00001, 0.5)) + 
-  scale_y_continuous(trans='log10') + 
-  # scale_alpha()
-  theme_light()
-
-
 ## Plots ======================================================================
-
-dat.p <- dat_loci %>% 
-  # filter(study %in% c("Bellenguez", "Jonsson", "Reiman")) %>%
-  select(SNP, CHR, BP, GENE, gnomad_maf, OR, label, architecture, architecture2, 
-         annotation, annotation_impact, dir, effect, cytoband, locus, locus_ld, study) %>%
-  mutate(size = ifelse(effect < 1.2, 1, effect), 
-         label = ifelse(is.na(label), "", label)) 
 
 theme.size = 8
 geom.text.size = (theme.size - 2) * 0.36
-
-### GWAS Plot 
 
 ### Bivariate Color scheme Legend
 # out.legend <- cowplot::get_legend(gwas.p + theme(legend.title= element_blank()) + guides(color=guide_legend(ncol=3)))
@@ -261,22 +167,10 @@ bivariate_legend = bivariate_color_scale %>%
     axis.ticks.x = element_blank()
   ) 
 
-bivariate_legend
-ggsave("~/Downloads/bivar_leg.png", plot = bivariate_legend + theme(legend.position = "none"), 
+ggsave("sandbox/plots/bivar_leg.png", plot = bivariate_legend + theme(legend.position = "none"), 
        width = 1.5, height = 1.5, units = "in")
 
-ggplot(power.dat, aes(y = or, x = maf)) + 
-  geom_line(data = filter(power.dat, study == "Bellenguez"), lwd=0.25, color ="grey70") + 
-  geom_line(data = filter(power.dat, study == "Lambert"), lwd=0.25, color ="grey70") + 
-  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez), 
-              aes(ymin = or, ymax = Lambert), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.0001, 0.5)) + 
-  scale_y_continuous(trans='log10') + 
-  theme_light()
-
-# GWAS Architecture
+### GWAS Architecture - observed scale
 adgwas.p <- ggplot() + 
   geom_hline(yintercept = 1, linetype = 2, color = "grey50") +
   # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
@@ -293,7 +187,7 @@ adgwas.p <- ggplot() +
     max.overlaps = Inf, nudge_y = -0.25, seed = 333,
     segment.size  = 0.2, segment.color = "grey50", min.segment.length = 0,
     color = "black", size = geom.text.size, show.legend = F) +
-  geom_point(data = dat.p, aes(x = gnomad_maf, y = OR, color = architecture2, size = size)) +
+  geom_point(data = dat.p, aes(x = gnomad_maf, y = OR, color = architecture, size = size)) +
   scale_size(guide = 'none', range = c(0.5,6)) +
   theme_classic() + 
   scale_x_continuous(trans='log10', breaks = c(0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
@@ -315,7 +209,7 @@ adgwas.p <- ggplot() +
 
 adgwas.p
 
-ggsave("~/Downloads/AD_points.png", plot = gwas.p + theme(legend.position = "none"), 
+ggsave("sandbox/plots/AD_points.png", plot = adgwas.p + theme(legend.position = "none"), 
        width = 7.5, height = 3.75, units = "in")
 
 ### Empty Y axis
@@ -335,21 +229,13 @@ adyaxis.p
 
 ### ADAD Genes
 adad <- tribble(
-  ~Gene, ~OR, ~FRQ, 
-  "APP", 1.2, 0.5,
-  "PSEN1", 0.2, 0,
-  "PSEN2", 0, 1,
-)
-
-
-adad <- tribble(
   ~Gene, ~x, ~y, 
   "APP", 1.5, 2,
   "PSEN1", 1, 1,
   "PSEN2", 2, 1,
 )
 
-pos <- ggbeeswarm::position_quasirandom()
+pos <- ggbeeswarm::position_quasirandom(groupOnX = TRUE)
 adad.p <- ggplot(adad, aes(x = x, y = y, color = Gene, label = Gene)) + 
   geom_point(position = pos, size = 11, fill = "#be64ac", shape = 21, color = "#87497b") +
   geom_text(position = pos, color = "white", size = geom.text.size) +
@@ -375,10 +261,8 @@ adad.p <- ggplot(adad, aes(x = x, y = y, color = Gene, label = Gene)) +
 
 adad.p
 
-## Plotgardner
-png("~/Dropbox/Research/PostDoc-MSSM/ADgenetics/plots/AD_GWAS2_BellenguezOnly.png", width = 9, height = 4.5, units = "in", res = 600)
-tiff("~/Dropbox/Research/PostDoc-MSSM/ADgenetics/plots/AD_GWAS2_BellenguezOnly.tiff", width = 9, height = 4.5, units = "in", res = 300)
-
+### Plotgardner
+png(outfile_obs.path, width = 9, height = 4.5, units = "in", res = 600)
 pageCreate(width = 9, height = 4.5, default.units = "inches")
 
 plotGG(
@@ -408,17 +292,7 @@ plotGG(
 pageGuideHide()
 dev.off()
 
-## Cowplot
-cowplot::plot_grid(adad.p, gg, yaxis.p, gwas.p + theme(legend.position = "none"), 
-                   # axis = "lb", align	= "hv",
-                   nrow = 2, ncol = 2, 
-                   rel_heights = c(0.2, 1),
-                   rel_widths = c(0.2, 1))
-ggsave("~/Downloads/AD_GWAS.png", width = 9, height = 4.5, units = "in")
-
-
 ### Absolute Scale 
-
 abs_gwas.p <- ggplot() + 
   # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
   geom_line(data = filter(power.dat, study == "Bellenguez"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
@@ -434,18 +308,18 @@ abs_gwas.p <- ggplot() +
     color = "black", size = geom.text.size, show.legend = F) +
   geom_point(data = filter(dat.p, dir == "risk" & label != "") , shape = 24,
            aes(x = gnomad_maf, y = effect, 
-               color = architecture2, 
-               fill = architecture2, 
+               color = architecture, 
+               fill = architecture, 
                size = size)) +
   geom_point(data = filter(dat.p, dir == "protective" & label != ""), shape = 25, 
              aes(x = gnomad_maf, y = effect, 
-                 color = architecture2, 
-                 fill = architecture2, 
+                 color = architecture, 
+                 fill = architecture, 
                  size = size)) +
   geom_point(data = filter(dat.p, label == ""), shape = 19, 
              aes(x = gnomad_maf, y = effect, 
-                 color = architecture2, 
-                 fill = architecture2, 
+                 color = architecture, 
+                 fill = architecture, 
                  size = size)) +
   scale_size(guide = 'none', range = c(0.5,6)) +
   theme_classic() + 
@@ -496,7 +370,7 @@ void.p <- ggplot() + theme_void() +
     plot.background = element_rect(fill='white', color=NA),
   )
 
-png("~/Dropbox/Research/PostDoc-MSSM/ADGenetics/plots/AD_GWASabs2_area.png", 
+png(outfile_abs.path, 
     width = 9, height = 4.5, units = "in", res = 300)
 pageCreate(width = 9, height = 4.5, default.units = "inches")
 
@@ -541,7 +415,6 @@ plotGG(
   x = 8.9, y = 0.1,
   width = 1.4, height = 1.4, just = c("right", "top")
 )
-
 
 pageGuideHide()
 dev.off()

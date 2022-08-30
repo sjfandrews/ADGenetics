@@ -11,9 +11,6 @@ adgwas <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/
 
 ## AD GWAS Loci Plots
 
-genes_to_plot <- c("ABCA7", "ABCA1", "TREM2", "APOE", "SIGLEC11", "GRN", "ABI3", "PLCG2", "BIN1", "CD2AP", "EED", "SPI1", 
-"PTK2B", "CLU", "CASS4", "BLNK", "NCK2", "RIN3", "MS4A", "CD33", "PILRA", "CTSB", "CTSH", "APP")
-
 ad_loci %>% 
   left_join(adgwas, by = "study") %>%
   group_by(locus) %>%
@@ -74,10 +71,10 @@ dat_loci <- ad_loci %>%
   ) %>%
   mutate(
     label = case_when(
-      annotation_impact %in% c("HIGH", "LOW", "MODERATE") & gnomad_maf < 0.05 &  GENE %in% genes_to_plot ~ glue("{gene_name} {hgvs_p_new}"),
+      annotation_impact %in% c("HIGH", "LOW", "MODERATE") & gnomad_maf < 0.05 ~ glue("{gene_name} {hgvs_p_new}"),
       str_detect(GENE, "APOE") ~ GENE, 
-      GENE %in% genes_to_plot ~ GENE
-      # !is.na(gvc_gene) ~ gvc_gene,
+      # SNP %in% genes_to_plot ~ gencode_gene
+      !is.na(gvc_gene) ~ gvc_gene,
     ),
     OR = ifelse(SNP == "rs429358", 3.6, OR),
     dir = ifelse(OR > 1, "risk", "protective"), 
@@ -151,25 +148,18 @@ power.dat <- power.raw %>%
   arrange(maf) %>%
   mutate(inv_or = 1/or, 
          fill = "fill") %>% 
-  # filter(study %in% c("Lambert", "Bellenguez")) %>%
-  filter(study %in% c("Bellenguez", "Future1", "Future2")) %>%
-  group_by(study) %>%
-  fill(or, .direction = "up") %>%
-  distinct(maf, or, .keep_all = T) %>%
-  ungroup()
-  
- 
-test <- select(power.dat, maf, or, study) %>% 
-  pivot_wider(names_from = study, values_from = or) 
+  filter(study %in% c("Lambert", "Bellenguez"))
+
+test <- select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or)
 
 ggplot(test, aes(y = Bellenguez, x = maf)) + 
   geom_line(data = test, aes(y = Bellenguez), lwd=0.25, color ="grey70") + 
   geom_line(data = test, aes(y = Lambert), lwd=0.25, color ="grey70") + 
   geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or), 
               aes(ymin = Bellenguez, ymax = Lambert), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.00001", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.00001, 0.5)) + 
+  scale_x_continuous(trans='log10', breaks = c(0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
+                     labels = c("0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
+                     limits = c(0.0001, 0.5)) + 
   scale_y_continuous(trans='log10') + 
   theme_light()
   
@@ -185,24 +175,11 @@ ggplot(power.dat, aes(y = or, x = maf)) +
   scale_y_continuous(trans='log10') + 
   theme_light()
 
-ggplot(power.dat, aes(y = or, x = maf)) + 
-  geom_line(data = filter(power.dat, study == "Bellenguez"), lwd=0.25, color ="grey70") + 
-  # geom_line(data = filter(power.dat, study == "Future1"), lwd=0.25, color ="grey70") + 
-  geom_line(data = filter(power.dat, study == "Future2"), lwd=0.25, color ="grey70") + 
-  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez),
-              aes(ymin = or, ymax = Future2, alpha = maf), fill = "grey70") +
-  scale_x_continuous(trans='log10', breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
-                     labels = c("0.00001", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5"), 
-                     limits = c(0.00001, 0.5)) + 
-  scale_y_continuous(trans='log10') + 
-  # scale_alpha()
-  theme_light()
-
 
 ## Plots ======================================================================
 
 dat.p <- dat_loci %>% 
-  # filter(study %in% c("Bellenguez", "Jonsson", "Reiman")) %>%
+  filter(study %in% c("Bellenguez", "Jonsson", "Reiman")) %>%
   select(SNP, CHR, BP, GENE, gnomad_maf, OR, label, architecture, architecture2, 
          annotation, annotation_impact, dir, effect, cytoband, locus, locus_ld, study) %>%
   mutate(size = ifelse(effect < 1.2, 1, effect), 
@@ -367,10 +344,7 @@ adad.p <- ggplot(adad, aes(x = x, y = y, color = Gene, label = Gene)) +
     axis.text.y = element_text(angle=90), 
     axis.ticks.y = element_blank(),
     # axis.line.y=element_blank(),
-    text = element_text(size = theme.size), 
-    panel.background = element_rect(fill='white'),
-    plot.background = element_rect(fill='white', color=NA),
-    
+    text = element_text(size = theme.size)  
   )
 
 adad.p
@@ -422,10 +396,9 @@ ggsave("~/Downloads/AD_GWAS.png", width = 9, height = 4.5, units = "in")
 abs_gwas.p <- ggplot() + 
   # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
   geom_line(data = filter(power.dat, study == "Bellenguez"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
-  geom_line(data = filter(power.dat, study == "Future2"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
+  geom_line(data = filter(power.dat, study == "Lambert"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
   geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez), 
-              aes(ymin = or, ymax = Future2, x = maf), fill = "grey90") +
-  # geom_hline(yintercept = 12) + 
+              aes(ymin = or, ymax = Lambert, x = maf), fill = "grey90") +
   geom_text_repel(
     data = dat.p,
     aes(x = gnomad_maf, y = effect, label = label, point.size = size),
@@ -449,12 +422,12 @@ abs_gwas.p <- ggplot() +
                  size = size)) +
   scale_size(guide = 'none', range = c(0.5,6)) +
   theme_classic() + 
+  coord_cartesian(xlim=c(0.0001, 0.5), ylim = c(0.9, 13)) + 
   scale_x_continuous(trans='log10',
                      breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
                      labels = c("5e-1", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5")) + 
   scale_y_continuous(trans='log') +
   labs(x = "Global Population Minor Alelle Frequency", y = "Odds Ratio - Minor Allele") + 
-  coord_cartesian(xlim=c(0.00002, 0.5), ylim = c(0.9, 25)) + 
   # scale_colour_manual(values = c("#3b4994", "#5ac8c8", "#8c62aa", "#dfb0d6", "#ace4e4", "red")) + 
   scale_colour_manual(values = use_col) + 
   scale_fill_manual(values = use_col) + 
@@ -465,51 +438,60 @@ abs_gwas.p <- ggplot() +
     axis.ticks.y = element_blank(), 
     axis.line.y=element_blank(), 
     text = element_text(size = theme.size), 
-    legend.position = 'none', 
+    legend.position = 'none'
   )
 
 abs_gwas.p
 
 ### Empty Y axis
 abs_yaxis.p <- ggplot() + 
-  # geom_hline(yintercept = 12) + 
-  scale_x_continuous(limits = c(-0.1, 0.1), breaks=c(0), labels=c("Pathogenic Mutation")) +
+  scale_x_continuous(limits = c(-0.1, 0.1), breaks=c(0), labels=c("0")) +
   scale_y_continuous(trans='log', limits = c(0.9, 13), 
                      breaks=c(0, 1, 2, 4, 8, 12), 
                      labels = c("0", "1", "2", "4", "8", "12")) +
   # geom_hline(yintercept = 1, linetype = 2, color = "grey50") +
   theme_classic() + 
-  labs(x = "", y = "Odds Ratio - Minor Allele\n(Absolute Scale)") + 
+  labs(x = "", y = "Odds Ratio - Minor Allele") + 
   theme(
-    text = element_text(size = theme.size), 
-    panel.background = element_rect(fill='white'),
-    plot.background = element_rect(fill='white', color=NA),
-    
+    text = element_text(size = theme.size)
   )
 abs_yaxis.p
 
-
-## The empty void 
-void.p <- ggplot() + theme_void() + 
+abs_adad.p <- ggplot(adad, aes(x = FRQ, y = OR, color = Gene, label = Gene)) + 
+  geom_point(data = adad %>% filter(Gene != "APP"), 
+             aes(x = FRQ, y = OR, color = Gene), 
+             size = 20, fill = "#be64ac", shape = 21, color = "#87497b") + 
+  geom_point(data = adad %>% filter(Gene == "APP"), 
+             aes(x = FRQ, y = OR, color = Gene), 
+             size = 20, fill = "#be64ac", shape = 21, color = "#87497b") + 
+  geom_label(color = "#be64ac", size = geom.text.size, fill = "#be64ac") +
+  geom_text(color = 'white', size = geom.text.size) +
+  scale_y_continuous(breaks = 0.75, labels = "∞") +
+  theme_classic() +
+  labs(x = "Minor Allele Frequency", y = " ") + 
+  coord_cartesian(ylim=c(-2, 1.5), xlim = c(-0.5, 2)) +
+  # geom_segment(x = -0.5, y = -0.5, xend = -0.5, yend = 1.5, color = 'black') +
   theme(
-    # panel.background = element_rect(fill='white'),
-    plot.background = element_rect(fill='white', color=NA),
+    legend.position = 'none',
+    text = element_text(size = theme.size),  
+    axis.text.x = element_blank(), 
+    axis.title.x = element_blank(),
+    axis.ticks.x = element_blank(), 
+    axis.line.x=element_blank(), 
+    axis.text.y = element_text(size = theme.size + 5), 
+    axis.ticks.y = element_blank(),
+    # axis.line.y=element_blank(),
   )
+abs_adad.p
 
-png("~/Dropbox/Research/PostDoc-MSSM/ADGenetics/plots/AD_GWASabs2_area.png", 
+png("~/Dropbox/Research/PostDoc-MSSM/ADGenetics/plots/AD_GWASabs_area.png", 
     width = 9, height = 4.5, units = "in", res = 300)
 pageCreate(width = 9, height = 4.5, default.units = "inches")
 
 plotGG(
-  plot = abs_gwas.p + theme(legend.position = "none"),
-  x = 0.1, y = 0,
-  width = 9, height = 4.5, just = c("left", "top")
-)
-
-plotGG(
-  plot = void.p,
-  x = 0, y = 4,
-  width = 1.5, height = 0.5, just = c("left", "top")
+  plot = abs_adad.p,
+  x = -0.02, y = 0,
+  width = 2, height = 1, just = c("left", "top")
 )
 
 plotGG(
@@ -519,30 +501,16 @@ plotGG(
 )
 
 plotGG(
-  plot = void.p,
-  x = 0, y = 0.75,
-  width = 0.6, height = 0.25, just = c("left", "top")
+  plot = abs_gwas.p + theme(legend.position = "none"),
+  x = 1.5, y = 0.75,
+  width = 7.5, height = 3.75, just = c("left", "top")
 )
-
-plotGG(
-  plot = adad.p,
-  x = 0.14, y = 0,
-  width = 1.5, height = 1, just = c("left", "top")
-)
-
-# plotGG(
-#   plot = abs_gwas.p + theme(legend.position = "none"),
-#   x = 1.5, y = 0.75,
-#   width = 7.5, height = 3.75, just = c("left", "top")
-# )
 
 plotGG(
   plot = bivariate_legend,
   x = 8.9, y = 0.1,
   width = 1.4, height = 1.4, just = c("right", "top")
 )
-
-
 pageGuideHide()
 dev.off()
 
