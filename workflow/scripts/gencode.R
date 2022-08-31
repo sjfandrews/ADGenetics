@@ -29,7 +29,8 @@ gene_dist <- Vectorize(function(pos, start, end) {
 })
 
 nearest_gene_df <- function(chrom, position, genes) {
-  genes %>%
+  message("chr: ", chrom, " pos: ", position)
+  out <- genes %>%
     filter(chr == chrom) %>%
     mutate(dist = gene_dist(position, start, end)) %>%
     arrange(dist) %>%
@@ -41,6 +42,7 @@ nearest_gene_df <- function(chrom, position, genes) {
         ifelse(position > end, "downstream", "upstream")),
       pos = position) %>%
     select(-start, -end)
+  out
 }
 
 # Gencode v40
@@ -66,8 +68,9 @@ snps <- read_csv(path_snps)
 loci_gene <- snps %>%
   rename(chr = CHR, pos = BP) %>%
   distinct(SNP, chr, pos) %>%
-  left_join(purrr::map_dfr(~ nearest_gene_df(.x$chr, .x$pos, gencode)),
-            by = c("chr", "pos")) %>%
+  left_join(
+    purrr::map2_dfr(.$chr, .$pos, nearest_gene_df, gencode),
+    by = c("chr", "pos")) %>% 
   rename(gencode_gene = gene_name, gencode_dist = dist)
 
 # Export
