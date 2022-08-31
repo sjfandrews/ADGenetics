@@ -14,14 +14,14 @@ library(forcats)
 
 ## Snakemake
 ### Input
-snps.path = snakemake@input[['snps']]
+path_snps <- snakemake@input[["snps"]]
 
 ### Output
-unmerged.path = snakemake@output[['unmerged_bed']]
-outfile = snakemake@output[['outfile']]
+path_unmerged <- snakemake@output[["unmerged_bed"]]
+outfile <- snakemake@output[["outfile"]]
 
-## Make .bed file 
-snp_list_out <- read_tsv(snps.path )
+## Make .bed file
+snp_list_out <- read_tsv(path_snps)
 
 snp_list_out %>%
   mutate(
@@ -32,10 +32,10 @@ snp_list_out %>%
   ) %>%
   select(chrom, start, end, SNP, STUDY) %>%
   unite(snp, SNP, STUDY) %>%
-  write_tsv(unmerged.path, col_names = FALSE)
+  write_tsv(path_unmerged, col_names = FALSE)
 
 ## Merge loci
-region_locus <- glue("bedtools merge -i {unmerged.path}") %>%
+region_locus <- glue("bedtools merge -i {path_unmerged}") %>%
   system(intern = TRUE) %>%
   I() %>%
   read_tsv(col_names = FALSE) %>%

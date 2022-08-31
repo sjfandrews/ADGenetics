@@ -14,13 +14,13 @@ library(forcats)
 
 # Snakemake
 ## Input
-snps.path = snakemake@input[['snps']]
-gencode.path = snakemake@input[['gencode']]
+path_snps <- snakemake@input[["snps"]]
+path_gencode <- snakemake@input[["gencode"]]
 
 ## Output
-outfile = snakemake@output[['outfile']]
+outfile <- snakemake@output[["outfile"]]
 
-# Functions 
+# Functions
 
 gene_dist <- Vectorize(function(pos, start, end) {
   if (between(pos, start, end)) return(0)
@@ -44,8 +44,8 @@ nearest_gene_df <- function(chrom, position, genes) {
 }
 
 # Gencode v40
-message("\nImport: ", gencode.path, "...\n")
-gencode <- rtracklayer::import(gencode.path) %>%
+message("\nImport: ", path_gencode, "...\n")
+gencode <- rtracklayer::import(path_gencode) %>%
   as_tibble %>%
   filter(gene_type == "protein_coding" & type == "gene" &
          source == "HAVANA" & !is.na(hgnc_id)) %>%
@@ -61,14 +61,13 @@ gencode <- rtracklayer::import(gencode.path) %>%
 
 # Read SNPS
 message("\nAnnotate with nearest gene\n")
-snps <- read_csv(snps.path)
+snps <- read_csv(path_snps)
 
 loci_gene <- snps %>%
   rename(chr = CHR, pos = BP) %>%
   distinct(SNP, chr, pos) %>%
-  left_join(
-    purrr::map2_dfr(.$chr, .$pos, nearest_gene_df, gencode),
-    by = c("chr", "pos")) %>% 
+  left_join(purrr::map_dfr(~ nearest_gene_df(.x$chr, .x$pos, gencode)),
+            by = c("chr", "pos")) %>%
   rename(gencode_gene = gene_name, gencode_dist = dist)
 
 # Export

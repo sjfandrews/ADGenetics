@@ -1,4 +1,4 @@
-# Descriptives of AD GWAS 
+# Descriptives of AD GWAS
 
 library(dplyr)
 library(tidyr)
@@ -10,14 +10,12 @@ library(stringr)
 library(readr)
 library(forcats)
 library(glue)
-`%nin%` = negate(`%in%`)
+`%nin%` <- negate(`%in%`)
 
-
-ad_loci.raw <- read_csv("/Users/sheaandrews/Dropbox/Research/PostDoc-MSSM/ADGenetics/intermediate/ad_loci.csv")
-
-ad_loci <- ad_loci.raw %>%
+ad_loci <- "/results/ad_loci.csv" %>%
+  read_csv() %>%
   filter(study %nin% c("Jonsson", "Reiman")) %>%
-  select(locus, cytoband, locus_ld, SNP, CHR, BP, A1, A2, FRQ, OR, P, study) 
+  select(locus, cytoband, locus_ld, SNP, CHR, BP, A1, A2, FRQ, OR, P, study)
 
 known_loci <- ad_loci %>%
   filter(study %nin% c("Bellenguez", "Wightman"))
@@ -28,7 +26,7 @@ ad_loci %>%
   anti_join(known_loci, by = "locus") %>%
   # arrange(P) %>%
   # group_by(study) %>%
-  distinct(locus, .keep_all = T) 
+  distinct(locus, .keep_all = TRUE)
 
 
 ad_loci %>%

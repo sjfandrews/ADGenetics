@@ -14,13 +14,13 @@ library(forcats)
 
 ## Snakemake
 ### Input
-snps.path = snakemake@input[['snps']]
-gencode.path = snakemake@input[['gencode']]
+path_snps <- snakemake@input[["snps"]]
+path_gencode <- snakemake@input[["gencode"]]
 
 ### Output
-outfile = snakemake@output[['outfile']]
+outfile <- snakemake@output[["outfile"]]
 
-## Functions 
+## Functions
 gene_dist <- Vectorize(function(pos, start, end) {
   if (between(pos, start, end)) return(0)
   rg <- c(start, end)
@@ -42,12 +42,12 @@ nearest_gene_df <- function(chrom, position, genes) {
     select(-start, -end)
 }
 
-## Reading in 
-message("\nImporting...\n\t", snps.path, "\n\t", gencode.path, "\n")
-snps = read_csv(snps.path)
+## Reading in
+message("\nImporting...\n\t", path_snps, "\n\t", path_gencode, "\n")
+snps <- read_csv(path_snps)
 
 ## Gencode
-gencode <- rtracklayer::import(gencode.path) %>%
+gencode <- rtracklayer::import(path_gencode) %>%
   as_tibble %>%
   filter(gene_type == "protein_coding" & type == "gene" &
          source == "HAVANA" & !is.na(hgnc_id)) %>%

@@ -1,4 +1,4 @@
-# LD Structure 
+# LD Structure
 ## Assign variants to index snps
 
 library(dplyr)
@@ -14,11 +14,11 @@ library(forcats)
 
 ## Snakemake
 ### Input
-snps.path = snakemake@input[['snps']]
+path_snps <- snakemake@input[["snps"]]
 
 ### Output
-out_ld = snakemake@output[['ld']]
-out_tags = snakemake@output[['tags']]
+out_ld <- snakemake@output[["ld"]]
+out_tags <- snakemake@output[["tags"]]
 
 ## Functions
 ### Calculated LD from LDlink
@@ -54,7 +54,7 @@ tag_snps <- function(snp_df) {
 }
 
 ### LD Structure
-snps = read_csv(snps.path)
+snps <- read_csv(path_snps)
 
 ld <- snps %>%
   select(SNP, CHR, BP, A1, A2, study) %>%
@@ -90,6 +90,7 @@ tags_prune <- ld %>%
     locus_ld = lvls_revalue(tag, as.character(seq_along(fct_unique(tag))))
   )
 
+# Clumping
 tags <- snps %>%
   # get the minimum P value for each variant
   arrange(CHR, BP, P) %>%

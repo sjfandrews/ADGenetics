@@ -2,18 +2,14 @@
 
 library(dplyr)
 library(tidyr)
-library(purrr)
-library(janitor)
 library(tibble)
-library(glue)
 library(stringr)
 library(readr)
-library(forcats)
 library(httr)
 
 ## Snakemake
 ### Output
-outfile = snakemake@output[['out']]
+outfile <- snakemake@output[["out"]]
 
 bands <-
   httr::POST(url = "https://genome.ucsc.edu/cgi-bin/hgTables",

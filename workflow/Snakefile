@@ -185,8 +185,10 @@ rule combine:
 
 rule descriptives: 
     input: 
-        ss = rules.combine.output,
-        meta = rules.gwas_meta.output
+        ad_loci = rules.combine.output,
+        ad_gwas_meta = rules.gwas_meta.output,
+        supp_bellenguez = "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx",
+        supp_wightman = "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
     params:
         TableS1 = "docs/TableS1.csv"
     output:
