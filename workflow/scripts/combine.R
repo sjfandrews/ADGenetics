@@ -10,83 +10,71 @@ library(stringr)
 library(readr)
 library(forcats)
 
-# Snakemake 
+# Snakemake
 ## Input
-adgwas.path = "intermediate/adgwas_snps.csv"
-other.path = "intermediate/other_loci.csv"
-tags.path = "intermediate/adgwas_tags.csv"
-locus.path = "intermediate/adgwas_loci.csv"
-bands.path = "intermediate/cytobands.csv" 
-dbsnp.path =  "intermediate/adgwas_dbsnp.csv"
-gnomad.path = "intermediate/adgwas_gnomad.csv"
-gencode.path = "intermediate/adgwas_gencode.csv"
-gvc.path = "intermediate/adgwas_gvc.csv"
-snpeff.path = "intermediate/adgwas_snpeff.csv"
 
-adgwas.path = snakemake@input[['adgwas']]
-other.path = snakemake@input[['other']]
-tags.path = snakemake@input[['tags']]
-locus.path = snakemake@input[['locus']]
-bands.path = snakemake@input[['bands']]
-dbsnp.path =  snakemake@input[['dbsnp']]
-gnomad.path = snakemake@input[['gnomad']]
-gencode.path = snakemake@input[['gencode']]
-gvc.path = snakemake@input[['gvc']]
-snpeff.path = snakemake@input[['snpeff']]
+path <- list(
+  adgwas = "intermediate/adgwas_snps.csv",
+  other = "intermediate/other_loci.csv",
+  tags = "intermediate/adgwas_tags.csv",
+  locus = "intermediate/adgwas_loci.csv",
+  bands = "intermediate/cytobands.csv",
+  dbsnp =  "intermediate/adgwas_dbsnp.csv",
+  gnomad = "intermediate/adgwas_gnomad.csv",
+  gencode = "intermediate/adgwas_gencode.csv",
+  gvc = "intermediate/adgwas_gvc.csv",
+  snpeff = "intermediate/adgwas_snpeff.csv"
+)
 
-## Output
-outfile = snakemake@output[['outfile']]
+if (exists("snakemake")) {
+  path <- path %>%
+    imap(~ snakemake@input[[.y]])
+  outfile <- snakemake@output[["outfile"]]
+} else {
+  outfile <- "results/adgwas_loci.csv"
+}
 
 # Import datasets
-message(
-  "\nImporting...", 
-  "\n\t", adgwas.path,
-  "\n\t", other.path,
-  "\n\t", tags.path,
-  "\n\t", locus.path,
-  "\n\t", bands.path,
-  "\n\t", dbsnp.path,
-  "\n\t", gnomad.path,
-  "\n\t", gencode.path,
-  "\n\t", gvc.path, 
-  "\n"
-        )
+read_input <- function(path, input_name) {
+  message("\t", path)
+  if (input_name == "other") {
+    read_csv(path, col_types = list(A2 = col_character()))
+  } else {
+    read_csv(path)
+  }
+}
 
-other <- read_csv(other.path, col_types = list(A2 = col_character()))
-snps <- read_csv(adgwas.path)
-tags <- read_csv(tags.path)
-locus <- read_csv(locus.path)
-bands <- read_csv(bands.path)
-dbsnp <- read_csv(dbsnp.path)
-gnomad <- read_csv(gnomad.path)
-gencode <- read_csv(gencode.path)
-gvc <- read_csv(gvc.path)
-snpeff <- read_csv(snpeff.path)
+message("Importing...")
+input <- imap(path, read_input)
+message("")
 
 ## Merge regions, LD, and cytogenic bands
-loci <- tags %>%
+loci <- input$tags %>%
   mutate(snp_start = POS, snp_end = POS + 1) %>%
-  fuzzyjoin::genome_left_join(locus,
+  fuzzyjoin::genome_left_join(input$locus,
     by = c("CHR" = "chr", "snp_start" = "start", "snp_end" = "end")) %>%
-  fuzzyjoin::genome_left_join(bands,
+  fuzzyjoin::genome_left_join(input$bands,
     by = c("CHR" = "chr", "snp_start" = "chromStart",
            "snp_end" = "chromEnd")) %>%
   select(SNP = RS_Number, POS, Alleles, Details,
          tag, tag_clump, locus_ld, locus, cytoband)
 
-### For updating APOE locus 
-apoe_locus <- loci %>% filter(SNP == "rs429358") %>% slice(1) %>% select(locus, cytoband, locus_ld)
+### For updating APOE locus
+apoe_locus <- loci %>%
+  filter(SNP == "rs429358") %>%
+  slice(1) %>%
+  select(locus, cytoband, locus_ld)
 
 
 ## Join datasets together
-out <- other %>% 
+out <- input$other %>%
   filter(str_detect(GENE, "APOE")) %>%
-  bind_rows(snps, .) %>% 
-  left_join(select(dbsnp, SNP, dbsnp_gene, Major, Minor, MAF, AF),
+  bind_rows(input$adgwas, .) %>%
+  left_join(select(input$dbsnp, SNP, dbsnp_gene, Major, Minor, MAF, AF),
             by = "SNP") %>%
-  left_join(select(gnomad, SNP, gnomad_minor, gnomad_af, gnomad_maf),
+  left_join(select(input$gnomad, SNP, gnomad_minor, gnomad_af, gnomad_maf),
             by = "SNP") %>%
-  dplyr::rename(global_maf = MAF, global_af = AF) %>% 
+  dplyr::rename(global_maf = MAF, global_af = AF) %>%
   left_join(select(loci, SNP, locus, cytoband, locus_ld), by = c("SNP")) %>%
   relocate(locus, cytoband, locus_ld) %>%
   mutate(
@@ -111,10 +99,10 @@ out <- other %>%
                 A2, A1),
     A2 = ifelse(Minor != A2 & nchar(Minor) == 1  & !between(FRQ, 0.42, 0.58),
                 Minor, A2)) %>%
-  left_join(select(gencode, SNP, gencode_gene, gencode_dist, direction),
+  left_join(select(input$gencode, SNP, gencode_gene, gencode_dist, direction),
             by = "SNP") %>%
-  left_join(select(gvc, SNP, gvc_gene, gvc_dist), by = "SNP") %>%
-  left_join(snpeff, by = c("SNP" = "snp")) %>%
+  left_join(select(input$gvc, SNP, gvc_gene, gvc_dist), by = "SNP") %>%
+  left_join(input$snpeff, by = c("SNP" = "snp")) %>%
   mutate(
     ## replace Amino acid codes
     hgvs_p = str_replace(hgvs_p, "p.", ""),
@@ -139,7 +127,7 @@ out <- other %>%
     hgvs_p = str_replace_all(hgvs_p, "Trp", "W"),
     hgvs_p = str_replace_all(hgvs_p, "Tyr", "Y"),
   ) %>%
-  separate(hgvs_p, into = c("p1", "p2"),  sep = "\\d{1,4}", remove = F) %>%
+  separate(hgvs_p, into = c("p1", "p2"),  sep = "\\d{1,4}", remove = FALSE) %>%
   mutate(
     ## update amino acids to use match minor allele
     aa = str_extract(hgvs_p,"\\d{1,4}"),
@@ -149,31 +137,8 @@ out <- other %>%
          )
   ) %>%
   select(-p1, -p2, -aa) %>%
-  mutate(locus_ld = as.numeric(locus_ld)) 
+  mutate(locus_ld = as.numeric(locus_ld))
 
 # Export
 message("\nExporting....", outfile, "\n")
 write_csv(out, outfile)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

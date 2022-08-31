@@ -5,7 +5,7 @@ library(dplyr)
 library(readr)
 
 ## Snakemake input/output
-outfile = snakemake@output[['out']]
+outfile <- snakemake@output[["out"]]
 
 ## Effective sample size
 ## https://github.com/neurogenomics/MungeSumstats/blob/master/R/compute_sample_size_neff.R

@@ -24,50 +24,65 @@ library(forcats)
 library(glue)
 library(readxl)
 # library(DT)
-`%nin%` = negate(`%in%`)
+`%nin%` <- negate(`%in%`)
 
 ```
 
 
 ```{r import, echo = F, include=F}
-ad_loci.path = "results/adgwas_loci.csv"
-adgwas_meta.path = "intermediate/gwas_metadata.csv"
-
-ad_loci.raw <- read_csv(ad_loci.path)
-adgwas_meta <- read_csv(adgwas_meta.path)
+path_ad_loci <- "results/adgwas_loci.csv"
+path_adgwas_meta <- "intermediate/gwas_metadata.csv"
+path_supp_wightman <- "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
+path_supp_bellenguez <-
+  "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
 
 #Export
-TableS1.path = snakemake@params[['TableS1']]
+path_table_s1 <- "docs/TableS1.csv"
+
+if (exists("snakemake")) {
+  path_supp_bellenguez <- snakemake@input[["supp_bellenguez"]]
+  path_supp_wightman <- snakemake@input[["supp_wightman"]]
+  path_ad_loci <- snakemake@input[["ad_loci"]]
+  path_adgwas_meta <- snakemake@input[["ad_gwas_meta"]]
+  path_table_s1 <- snakemake@params[["TableS1"]]
+}
+
+raw_ad_loci <- read_csv(path_ad_loci)
+adgwas_meta <- read_csv(path_adgwas_meta)
+
+#Export
+path_table_s1 <- snakemake@params[["TableS1"]]
 
 ```
 
 
 ```{r, echo = F}
-ad_loci <- ad_loci.raw %>%
+ad_loci <- raw_ad_loci %>%
   filter(study %nin% c("Jonsson", "Reiman")) %>%
-  select(locus, cytoband, locus_ld, Gene = gencode_gene, SNP, CHR, BP, A1, A2, FRQ = global_af, OR, P, study) %>%
+  select(locus, cytoband, locus_ld, Gene = gencode_gene, SNP, CHR, BP,
+         A1, A2, FRQ = global_af, OR, P, study) %>%
   mutate(
     FRQ = signif(FRQ, 3),
     OR = signif(OR, 3),
   )
 
-write_csv(ad_loci, TableS1.path)
+write_csv(ad_loci, path_table_s1)
 ```
 
 ```{r}
-bellenguez_supp.path = "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
-bst20_raw <- readxl::read_xlsx(bellenguez_supp.path, sheet = 21, skip = 2) %>%
+
+bst20_raw <- readxl::read_xlsx(path_supp_bellenguez, sheet = 21, skip = 2) %>%
   janitor::clean_names()
 
 bst20 <- bst20_raw %>%
-  select(locus, gene, gene_prioritization_tier) %>% 
-  filter(gene_prioritization_tier %in% c("Tier 1", "Tier 2")) 
+  select(locus, gene, gene_prioritization_tier) %>%
+  filter(gene_prioritization_tier %in% c("Tier 1", "Tier 2"))
 
-wightman_supp.path = "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
-wst11 <- readxl::read_xlsx(wightman_supp.path, sheet = 11, skip = 1) %>%
+wst11 <- readxl::read_xlsx(path_supp_wightman, sheet = 11, skip = 1) %>%
   janitor::clean_names()
 
- bst20 %>% filter(gene_prioritization_tier == "Tier 1")  %>%
+bst20 %>%
+   filter(gene_prioritization_tier == "Tier 1") %>%
    print(n = Inf)
 
 ```
@@ -90,12 +105,12 @@ novel_loci <- ad_loci %>%
   anti_join(known_loci, by = "locus") %>%
   # arrange(P) %>%
   # group_by(study) %>%
-  distinct(locus, .keep_all = T) 
+  distinct(locus, .keep_all = TRUE)
 
 nrow(novel_loci)
 novel_loci %>% count(study)
 
-# Number of loci in B & W 
+# Number of loci in B & W
 n_loci <- ad_loci %>%
   filter(study %in% c("Bellenguez", "Wightman")) %>%
   group_by(locus)
@@ -110,7 +125,7 @@ n_loci_study <- ad_loci %>%
   count(study)
 
 n_loci_study
- 
+
 # Number of independent variants
 n_variants <- ad_loci %>%
   filter(study %in% c("Bellenguez", "Wightman")) %>%
@@ -154,7 +169,7 @@ in European ancestry populations (Figure 2), how many more novel loci remain to 
 
 
 ```{r, echo = F}
-DT::datatable(ad_loci, rownames = F, filter='top')
+DT::datatable(ad_loci, rownames = FALSE, filter = "top")
 ```
 
 

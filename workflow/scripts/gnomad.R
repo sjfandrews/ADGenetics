@@ -13,17 +13,17 @@ library(forcats)
 
 ## Snakemake
 ### Input
-gnomad.path = snakemake@input[['gnomad']]
-snps.path = snakemake@input[['snps']]
+path_gnomad <- snakemake@input[["gnomad"]]
+path_snps <- snakemake@input[["snps"]]
 
 ### Output
-outfile = snakemake@output[['outfile']]
+outfile <- snakemake@output[["outfile"]]
 
-## SNPs 
-snp_list_out <- read_tsv(snps.path )
+## SNPs
+snp_list_out <- read_tsv(path_snps)
 
-## gnomAD allele frequencies 
-gnomadaf_raw <- vcfR::read.vcfR(gnomad.path)
+## gnomAD allele frequencies
+gnomadaf_raw <- vcfR::read.vcfR(path_gnomad)
 
 gnomad_af <- gnomadaf_raw %>%
   vcfR::vcfR2tidy(., info_only = TRUE) %>%

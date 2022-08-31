@@ -13,14 +13,14 @@ library(forcats)
 
 ## Snakemake
 ## Input
-snps.path = snakemake@input[['snps']]
+path_snps <- snakemake@input[["snps"]]
 
 ## Output
-outfile = snakemake@output[['outfile']]
+outfile <- snakemake@output[["outfile"]]
 
-## Import SNPs 
-dbsnp_info <- read_delim(snps.path, delim = '\t', col_names = F) %>% 
-    pull(X1) %>%
+## Import SNPs
+dbsnp_info <- read_delim(path_snps, delim = "\t", col_names = FALSE) %>%
+  pull(X1) %>%
   rsnps::ncbi_snp_query()
 
 global_maf <- dbsnp_info %>%
@@ -40,5 +40,5 @@ global_maf <- dbsnp_info %>%
   mutate(gene = na_if(gene, "")) %>%
   rename(dbsnp_gene = gene, SNP = query)
 
-## Export 
+## Export
 write_csv(global_maf, outfile)
