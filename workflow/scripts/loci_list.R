@@ -14,7 +14,7 @@ library(data.table)
 ## Input
 path_gwas <-
   c("lambert", "kunkle", "marioni", "jansen", "wightman", "bellenguez") %>%
-  sapply(function(x) snakemake@input[[x]], simplify = FALSE)
+  sapply(function(x) snakemake@input[[x]])
 path_other <- snakemake@input[["other"]]
 path_meta <- snakemake@input[["meta"]]
 
@@ -35,7 +35,8 @@ snps <- path_gwas %>%
   map(select, SNP, CHR, BP, A1, A2, any_of(c("GENE")), FRQ, OR, P) %>%
   imap_dfr(~ mutate(.x, study = .y)) %>%
   bind_rows(other %>% filter(!str_detect(GENE, "APOE"))) %>%
-  arrange(CHR, BP)
+  arrange(CHR, BP) %>%
+  mutate(study = str_to_title(study))
 
 write_csv(snps, out_csv)
 
