@@ -7,14 +7,21 @@ library(plyr)
 library(dplyr)
 library(stringr)
 library(forcats)
-library(data.table)
+# library(data.table)
 
 # Snakemake
 
 ## Input
-path_gwas <-
-  c("lambert", "kunkle", "marioni", "jansen", "wightman", "bellenguez") %>%
-  sapply(function(x) snakemake@input[[x]])
+# path_gwas <-
+#   c("lambert", "kunkle", "marioni", "jansen", "wightman", "bellenguez") %>%
+#   sapply(function(x) snakemake@input[[x]])
+path_gwas <- list(
+  Lambert = snakemake@input[["lambert"]],
+  Kunkle = snakemake@input[["kunkle"]],
+  Marioni = snakemake@input[["marioni"]],
+  Jansen = snakemake@input[[ "jansen"]],
+  Wightman = snakemake@input[["wightman"]],
+  Bellenguez = snakemake@input[["bellenguez"]])
 path_other <- snakemake@input[["other"]]
 path_meta <- snakemake@input[["meta"]]
 
@@ -35,8 +42,8 @@ snps <- path_gwas %>%
   map(select, SNP, CHR, BP, A1, A2, any_of(c("GENE")), FRQ, OR, P) %>%
   imap_dfr(~ mutate(.x, study = .y)) %>%
   bind_rows(other %>% filter(!str_detect(GENE, "APOE"))) %>%
-  arrange(CHR, BP) %>%
-  mutate(study = str_to_title(study))
+  # mutate(study = str_to_title(study)) %>%
+  arrange(CHR, BP) 
 
 write_csv(snps, out_csv)
 
@@ -65,8 +72,8 @@ snp_list_out <- snp_list_munged %>%
   arrange(CHR, BP)
 
 snp_list_out %>%
-  as.data.table() %>%
-  MungeSumstats::write_sumstats(out_vcf, write_vcf = TRUE)
+  data.table::as.data.table() %>%
+  MungeSumstats::write_sumstats(., out_vcf, write_vcf = TRUE)
 
 write_tsv(snp_list_out, out_tsv)
 
