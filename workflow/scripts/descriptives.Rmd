@@ -49,10 +49,6 @@ if (exists("snakemake")) {
 
 raw_ad_loci <- read_csv(path_ad_loci)
 adgwas_meta <- read_csv(path_adgwas_meta)
-
-#Export
-path_table_s1 <- snakemake@params[["TableS1"]]
-
 ```
 
 
