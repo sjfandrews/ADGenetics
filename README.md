@@ -35,6 +35,7 @@ Rules for defining the workflow are `workflow/Snakefile` and the individule scri
 
 ## Plots 
 
+
 ![Architecture Plot](results/plots/Lancet_AD_GeneticArcht_Abs.png)
 
 Figure 1: Allele sepctrum of Alzheimer's disease associated single nucleotide polymorphisms from genome-wide association studies of clincial- and proxy- dementia and family based studies of Autosomal Dominant AD. 
