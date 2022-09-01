@@ -50,5 +50,6 @@ The intersection of AD-associated loci identified across genome-wide association
 WIP 
 
 Contributors: 
-- Shea J Andrews 
-- Brian Fulton Howard
+- Shea J. Andrews 
+- Brian Fulton-Howard
+- Alan E. Renton
