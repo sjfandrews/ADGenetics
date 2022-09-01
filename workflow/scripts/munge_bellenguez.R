@@ -14,7 +14,8 @@ data(sumstatsColHeaders)
 
 # Snakemake input & output
 bellenguez.path <- snakemake@input[['bellenguez']]
-bellenguez_out.path = snakemake@output[['bellenguez_out']]
+bellenguez_clean.path = snakemake@output[['bellenguez_clean']]
+bellenguez_munge.path = snakemake@output[['bellenguez_munge']]
 
 ## Misc functions
 calc_se_from_beta_and_l95 = function(or, l95){
@@ -30,7 +31,7 @@ calc_beta_from_z_n_freq = function(Z, FRQ, N){
 }
 
 
-### Adding APOE locus added manually from Kunkle summary statistics 
+### APOE locus added manually from Kunkle summary statistics as not reported
 
 message("\nExtracting Bellenguez 2022 .pdf\n")
 bellenguez_raw <- extract_tables(bellenguez.path)
@@ -105,8 +106,11 @@ bellenguez <- bellenguez_munged %>%
 print(bellenguez, n = Inf)
 
 ## Export Cleaned datasets 
-message("\nExporting: ", bellenguez_out.path, "\n")
-write_csv(bellenguez, bellenguez_out.path)
+message("\nExporting: ", bellenguez_munge.path, " & ", 
+        bellenguez_clean.path, "\n")
+
+write_csv(bellenguez_clean, bellenguez_clean.path)
+write_csv(bellenguez, bellenguez_munge.path)
 
 
 

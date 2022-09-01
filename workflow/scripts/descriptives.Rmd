@@ -33,14 +33,15 @@ library(readxl)
 path_ad_loci <- "results/adgwas_loci.csv"
 path_adgwas_meta <- "intermediate/gwas_metadata.csv"
 path_supp_wightman <- "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
-path_supp_bellenguez <-
-  "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
+path_supp_bellenguez <- "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
+path_clean_bellenguez <- "intermediate/bellenguez_clean_loci.csv"
 
-#Export
+# Export
 path_table_s1 <- "docs/TableS1.csv"
 
 if (exists("snakemake")) {
   path_supp_bellenguez <- snakemake@input[["supp_bellenguez"]]
+  path_clean_bellenguez <- snakemake@input[["bellenguez_clean"]]
   path_supp_wightman <- snakemake@input[["supp_wightman"]]
   path_ad_loci <- snakemake@input[["ad_loci"]]
   path_adgwas_meta <- snakemake@input[["ad_gwas_meta"]]
@@ -64,25 +65,6 @@ ad_loci <- raw_ad_loci %>%
 
 write_csv(ad_loci, path_table_s1)
 ```
-
-```{r}
-
-bst20_raw <- readxl::read_xlsx(path_supp_bellenguez, sheet = 21, skip = 2) %>%
-  janitor::clean_names()
-
-bst20 <- bst20_raw %>%
-  select(locus, gene, gene_prioritization_tier) %>%
-  filter(gene_prioritization_tier %in% c("Tier 1", "Tier 2"))
-
-wst11 <- readxl::read_xlsx(path_supp_wightman, sheet = 11, skip = 1) %>%
-  janitor::clean_names()
-
-bst20 %>%
-   filter(gene_prioritization_tier == "Tier 1") %>%
-   print(n = Inf)
-
-```
-
 
 ```{r, echo=F, include=F}
 ## Distinct loci across all studies
@@ -169,7 +151,72 @@ DT::datatable(ad_loci, rownames = FALSE, filter = "top")
 ```
 
 
+```{r, echo=F, include=F}
+# Which loci from Bellenguez are getting collapsed?
+clean_bellenguez <- read_csv(path_clean_bellenguez)
 
+bell_org <- clean_bellenguez %>%
+  filter(SNP != "rs429358")
+
+n_distinct(bell_org$LOCUS)
+
+bell_munge <- raw_ad_loci %>% 
+  filter(study == "Bellenguez") %>%
+  select(locus, locus_ld, SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>%
+  filter(SNP != "rs429358")
+
+n_distinct(bell_munge$locus_ld)
+n_distinct(bell_munge$locus)
+
+bell_comb <- full_join(
+  select(bell_org, SNP, LOCUS), bell_munge, 
+  by = "SNP"
+)
+
+bell_comb %>%
+  janitor::get_dupes(locus) %>%
+  print(n = Inf)
+
+## Collapsed loci CLU/PTK2B, UMAD1/ICA1, ADAMTS1/APP (42), ABCA7/KLF16 (37), APH1B/SNX1 (28)
+
+filter(bell_comb, GENE %in% c(
+  "CLU", "PTK2B", "UMAD1", "ICA1", "ADAMTS1", "APP", "ABCA7", "KLF16", "APH1B", "SNX1"
+))
+
+```
+
+
+```{r, include=F, echo=F}
+## Add priortized genes to bellenguez
+bst20_raw <- readxl::read_xlsx(path_supp_bellenguez, sheet = 21, skip = 2) %>%
+  janitor::clean_names()
+
+bst20 <- bst20_raw %>%
+  select(locus, gene, gene_prioritization_tier) %>%
+  filter(gene_prioritization_tier %in% c("Tier 1", "Tier 2")) %>%
+  mutate(locus_n = str_extract(locus, '(?<=\\().*[:digit:](?=\\))')) %>%
+  rename(locus_gene = locus)
+
+bell_comb_gene <- bell_comb %>%
+  left_join(bst20, by = c("LOCUS" = "locus_n")) 
+
+## Number of distinct loci with a Teir 1 gene  
+bell_comb_gene %>%
+  filter(nchar(LOCUS) <= 2) %>%
+  filter(gene_prioritization_tier == "Tier 1") %>%
+  distinct(locus)
+
+
+wst11 <- readxl::read_xlsx(path_supp_wightman, sheet = 11, skip = 1) %>%
+  janitor::clean_names()
+
+bst20 %>%
+   filter(gene_prioritization_tier == "Tier 1") %>%
+   print(n = Inf)
+
+
+
+```
 
 
 
