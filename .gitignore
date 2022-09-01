@@ -45,7 +45,6 @@ snpEff_*
 .snakemake
 *.gtf.gz
 Rplots.pdf
-plots/
 data/GRCh37.75
 snpEff*
 docs/*
