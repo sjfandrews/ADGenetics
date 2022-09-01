@@ -14,38 +14,92 @@ rule all:
        "results/plots/Lancet_AD_GeneticArcht_obs.png",
        "docs/Descriptives.html",
 
-rule munge:
-    input:
-        lambert = "resources/Lambert2013/www.nature.com 11_22_2019, 11_45_10 AM.pdf",
-        kunkle = "resources/Kunkle2019/Table1-2.pdf",
-        marioni = "resources/Marioni2018/Marioni2018_gws.txt",
-        jansen_table = "resources/Jansen2019/www.nature.com 11_25_2019, 7_56_44 AM.pdf",
-        jansen_ss = "resources/Jansen2019/Jansen2019_gws.txt",
-        wightman_table = "resources/Wightman2020/www.nature.com 02_10_2021, 15_58_50.pdf",
-        wightman_ss = "resources/Wightman2020/wightman_gws.txt",
-        bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
-    output:
-        lambert_out = "intermediate/lambert_loci.csv",
-        kunkle_out = "intermediate/kunkle_loci.csv",
-        marioni_out = "intermediate/marioni_loci.csv",
-        jansen_out = "intermediate/jansen_loci.csv",
-        wightman_out = "intermediate/wightman_loci.csv",
-        bellenguez_out = "intermediate/bellenguez_loci.csv",
-        other_out = "intermediate/other_loci.csv",
-    singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
-    script: "scripts/munge.R"
-
-# rule munge_bellenguez:
-#     input:
-#         bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
-#     output:
-#         bellenguez_out = "intermediate/bellenguez_loci.csv",
-#     singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
-#     script: "scripts/munge_bellenguez.R"
-
 rule gwas_meta:
     output: out = "intermediate/gwas_metadata.csv"
     script: "scripts/gwas_meta.R"
+
+# rule munge:
+#     input:
+#         lambert = "resources/Lambert2013/www.nature.com 11_22_2019, 11_45_10 AM.pdf",
+#         kunkle = "resources/Kunkle2019/Table1-2.pdf",
+#         marioni = "resources/Marioni2018/Marioni2018_gws.txt",
+#         jansen_table = "resources/Jansen2019/www.nature.com 11_25_2019, 7_56_44 AM.pdf",
+#         jansen_ss = "resources/Jansen2019/Jansen2019_gws.txt",
+#         wightman_table = "resources/Wightman2020/www.nature.com 02_10_2021, 15_58_50.pdf",
+#         wightman_ss = "resources/Wightman2020/wightman_gws.txt",
+#         # bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
+#     output:
+#         lambert_out = "intermediate/lambert_loci.csv",
+#         kunkle_out = "intermediate/kunkle_loci.csv",
+#         marioni_out = "intermediate/marioni_loci.csv",
+#         jansen_out = "intermediate/jansen_loci.csv",
+#         wightman_out = "intermediate/wightman_loci.csv",
+#         # bellenguez_out = "intermediate/bellenguez_loci.csv",
+#         other_out = "intermediate/other_loci.csv",
+#     singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+#     script: "scripts/munge.R"
+
+rule munge_lambert:
+    input:
+        lambert = "resources/Lambert2013/www.nature.com 11_22_2019, 11_45_10 AM.pdf",
+    output:
+        lambert_munge = "intermediate/lambert_loci.csv",
+        lambert_clean = "intermediate/lambert_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_lambert.R"
+
+rule munge_kunkle:
+    input:
+        kunkle = "resources/Kunkle2019/Table1-2.pdf",
+    output:
+        kunkle_munge = "intermediate/kunkle_loci.csv",
+        kunkle_clean = "intermediate/kunkle_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_kunkle.R"
+
+rule munge_marioni:
+    input:
+        marioni = "resources/Marioni2018/Marioni2018_gws.txt",
+    output:
+        marioni_munge = "intermediate/marioni_loci.csv",
+        marioni_clean = "intermediate/marioni_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_marioni.R"
+
+rule munge_jansen:
+    input:
+        jansen_table = "resources/Jansen2019/www.nature.com 11_25_2019, 7_56_44 AM.pdf",
+        jansen_ss = "resources/Jansen2019/Jansen2019_gws.txt",
+    output:
+        jansen_munge = "intermediate/jansen_loci.csv",
+        jansen_clean = "intermediate/jansen_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_jansen.R"
+
+rule munge_bellenguez:
+    input:
+        bellenguez = "resources/Bellenguez2022/Bellenguez2022.pdf",
+    output:
+        bellenguez_munge = "intermediate/bellenguez_loci.csv",
+        bellenguez_clean = "intermediate/bellenguez_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_bellenguez.R"
+
+rule munge_wightman:
+    input:
+        wightman_table = "resources/Wightman2020/www.nature.com 02_10_2021, 15_58_50.pdf",
+        wightman_ss = "resources/Wightman2020/wightman_gws.txt",
+    output:
+        wightman_munge = "intermediate/wightman_loci.csv",
+        wightman_clean = "intermediate/wightman_clean_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_wightman.R"
+
+rule munge_other:
+    output:
+        other_out = "intermediate/other_loci.csv",
+    # singularity: "docker://sjfandrews/mendelianrandomization=0.5.8"
+    script: "scripts/munge_other.R"
 
 rule power_curves:
     input:
@@ -57,13 +111,13 @@ rule power_curves:
 
 rule loci_list:
     input: 
-        lambert = rules.munge.output.lambert_out,
-        kunkle = rules.munge.output.kunkle_out,
-        marioni = rules.munge.output.marioni_out,
-        jansen = rules.munge.output.jansen_out,
-        wightman = rules.munge.output.wightman_out,
-        bellenguez = rules.munge.output.bellenguez_out,
-        other = rules.munge.output.other_out,
+        lambert = rules.munge_lambert.output.lambert_munge,
+        kunkle = rules.munge_kunkle.output.kunkle_munge,
+        marioni = rules.munge_marioni.output.marioni_munge,
+        jansen = rules.munge_jansen.output.jansen_munge,
+        wightman = rules.munge_wightman.output.wightman_munge,
+        bellenguez = rules.munge_bellenguez.output.bellenguez_munge,
+        other = rules.munge_other.output.other_out,
         meta = rules.gwas_meta.output
     output:
         out_vcf = "intermediate/adgwas_snps.vcf",
@@ -169,7 +223,7 @@ rule gvc:
 rule combine:
     input:
         adgwas = rules.loci_list.output.out_csv,
-        other = rules.munge.output.other_out,
+        other = rules.munge_other.output.other_out,
         tags = rules.ldlinkr.output.tags,
         locus = rules.merge_loci.output.outfile,
         bands = rules.cytobands.output,
@@ -187,6 +241,7 @@ rule descriptives:
     input: 
         ad_loci = rules.combine.output,
         ad_gwas_meta = rules.gwas_meta.output,
+        bellenguez_clean = rules.munge_bellenguez.output.bellenguez_clean,
         supp_bellenguez = "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx",
         supp_wightman = "resources/Wightman2020/41588_2021_921_MOESM4_ESM.xlsx"
     params:
