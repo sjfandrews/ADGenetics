@@ -4,7 +4,7 @@ Snakemake workflow for investigating the Genetic architecture of Alzheimer's dis
 
 ## Workflow
 
-Rules for defining the workflow are `workflow/Snakefile` and the individule script files used by specific rules are avaliable in `workflow/scripts/`. The general steps are: 
+Rules for defining the workflow are in `workflow/Snakefile` and the individule script files used by specific rules are avaliable in `workflow/scripts/`. The general steps are: 
 
 ![workflow](images/dag.png)
 
@@ -35,7 +35,6 @@ Rules for defining the workflow are `workflow/Snakefile` and the individule scri
 
 ## Plots 
 
-
 ![Architecture Plot](results/plots/Lancet_AD_GeneticArcht_Abs.png)
 
 Figure 1: Allele sepctrum of Alzheimer's disease associated single nucleotide polymorphisms from genome-wide association studies of clincial- and proxy- dementia and family based studies of Autosomal Dominant AD. 
@@ -43,7 +42,7 @@ Figure 1: Allele sepctrum of Alzheimer's disease associated single nucleotide po
 
 ![Upset Plot](results/plots/adgwas_upset.png)
 
-The intersection of AD-associated loci identified across genome-wide association studies.
+Figure 2: The intersection of AD-associated loci identified across genome-wide association studies.
 
 ## Citation 
 

@@ -7,7 +7,7 @@ library(plyr)
 library(dplyr)
 library(stringr)
 library(forcats)
-# library(data.table)
+library(data.table)
 
 # Snakemake
 
@@ -72,7 +72,7 @@ snp_list_out <- snp_list_munged %>%
   arrange(CHR, BP)
 
 snp_list_out %>%
-  data.table::as.data.table() %>%
+  as.data.table() %>%
   MungeSumstats::write_sumstats(., out_vcf, write_vcf = TRUE)
 
 write_tsv(snp_list_out, out_tsv)

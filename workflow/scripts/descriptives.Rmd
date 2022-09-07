@@ -57,7 +57,7 @@ adgwas_meta <- read_csv(path_adgwas_meta)
 ad_loci <- raw_ad_loci %>%
   filter(study %nin% c("Jonsson", "Reiman")) %>%
   select(locus, cytoband, locus_ld, Gene = gencode_gene, SNP, CHR, BP,
-         A1, A2, FRQ = global_af, OR, P, study) %>%
+         A1, A2, FRQ, gnomad_af, OR, P, study) %>%
   mutate(
     FRQ = signif(FRQ, 3),
     OR = signif(OR, 3),
@@ -67,26 +67,33 @@ write_csv(ad_loci, path_table_s1)
 ```
 
 ```{r, echo=F, include=F}
-## Distinct loci across all studies
+## Distinct loci and independent across all studies
 n_distinct(ad_loci$locus)
 n_distinct(ad_loci$locus_ld)
 
-## Old loci priort to Bellenguez and Wightman
+## Old loci prior to Bellenguez and Wightman
 known_loci <- ad_loci %>%
   filter(study %nin% c("Bellenguez", "Wightman"))
 
+count(known_loci, study)
 n_distinct(known_loci$locus)
 
 ## 42 novel loci discovered by Bellenguez and Whightman
 novel_loci <- ad_loci %>%
-  filter(study %in% c("Bellenguez", "Wightman")) %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>% 
   anti_join(known_loci, by = "locus") %>%
-  # arrange(P) %>%
-  # group_by(study) %>%
-  distinct(locus, .keep_all = TRUE)
+  distinct(locus, .keep_all = TRUE) %>%
+  nrow(.)
 
-nrow(novel_loci)
-novel_loci %>% count(study)
+novel_loci_study <- ad_loci %>%
+  filter(study %in% c("Bellenguez", "Wightman")) %>% 
+  anti_join(known_loci, by = "locus") %>%
+  group_by(study) %>%
+  distinct(locus, .keep_all = TRUE) %>%
+  ungroup()
+  nrow()
+
+count(novel_loci_study, study)
 
 # Number of loci in B & W
 n_loci <- ad_loci %>%
@@ -163,7 +170,7 @@ n_distinct(bell_org$LOCUS)
 bell_munge <- raw_ad_loci %>% 
   filter(study == "Bellenguez") %>%
   select(locus, locus_ld, SNP, CHR, BP, A1, A2, GENE, FRQ, OR, P) %>%
-  filter(SNP != "rs429358")
+  filter(SNP != "rs429358") 
 
 n_distinct(bell_munge$locus_ld)
 n_distinct(bell_munge$locus)
@@ -206,6 +213,60 @@ bell_comb_gene %>%
   filter(gene_prioritization_tier == "Tier 1") %>%
   distinct(locus)
 
+## Number of genes in each teir
+### From all newly identified loci, this gene prioritization yielded 31 tier 1 genes and 24 tier 2. Among the 31 tier 1 genes, we observed that 25 of these genes were the only prioritized gene in their respective locus. For the remaining 6 tier 1 genes, we also found tier 2 genes in their respective locus. We also identified five loci containing several tier 2 prioritized genes... In five loci, our prioritization score did not identify sufficient molecular evidence to prioritize genes with exception of being the nearest gene (L10, L12, L13, L14 and L32). 
+
+bell_comb_gene %>%
+  # filter(LOCUS %in% c("10", "12", "13", "14", "32"))
+  filter(nchar(LOCUS) <= 2) %>%
+  # mutate(gene_prioritization_tier = ifelse(LOCUS %in% c("10", "12", "13", "14", "32"), NA, gene_prioritization_tier)) %>%
+  filter(!is.na(gene_prioritization_tier)) %>%
+  distinct(gene, .keep_all = T) %>%
+  count(gene_prioritization_tier)
+
+## Number of loci with each tier category
+bell_comb_gene %>%
+  filter(nchar(LOCUS) <= 2) %>%
+  # mutate(gene_prioritization_tier = ifelse(LOCUS %in% c("10", "12", "13", "14", "32"), NA, gene_prioritization_tier)) %>%
+  filter(!is.na(gene_prioritization_tier)) %>%
+  distinct(gene, .keep_all = T) %>%
+  group_by(LOCUS) %>%
+  count(gene_prioritization_tier) %>% 
+  pivot_wider(names_from = gene_prioritization_tier, values_from = n) %>%
+  janitor::clean_names() %>%
+  ungroup() %>%
+  mutate(
+    cat = case_when(
+      tier_1 == 1 & is.na(tier_2) ~ "Tier 1 only", 
+      tier_1 == 1 & tier_2 == 1 ~ "Tier 1 + 2", 
+      tier_1 == 1 & tier_2 > 1 ~ "Tier 1 + multi Tier 2", 
+      is.na(tier_1) & tier_2 == 1 ~ "Tier 2 only", 
+      is.na(tier_1) & tier_2 > 1 ~ "mutlti Tier 2 ", 
+    )
+  ) %>%
+  count(cat)
+
+## Our locus definition
+bell_comb_gene %>%
+  filter(nchar(LOCUS) <= 2) %>%
+  # mutate(gene_prioritization_tier = ifelse(LOCUS %in% c("10", "12", "13", "14", "32"), NA, gene_prioritization_tier)) %>%
+  filter(!is.na(gene_prioritization_tier)) %>%
+  distinct(gene, .keep_all = T) %>%
+  group_by(locus) %>%
+  count(gene_prioritization_tier) %>% 
+  pivot_wider(names_from = gene_prioritization_tier, values_from = n) %>%
+  janitor::clean_names() %>%
+  ungroup() %>%
+  mutate(
+    cat = case_when(
+      tier_1 == 1 & is.na(tier_2) ~ "Tier 1 only", 
+      tier_1 == 1 & tier_2 == 1 ~ "Tier 1 + 2", 
+      tier_1 == 1 & tier_2 > 1 ~ "Tier 1 + multi Tier 2", 
+      is.na(tier_1) & tier_2 == 1 ~ "Tier 2 only", 
+      is.na(tier_1) & tier_2 > 1 ~ "mutlti Tier 2 ", 
+    )
+  ) %>%
+  count(cat)
 
 wst11 <- readxl::read_xlsx(path_supp_wightman, sheet = 11, skip = 1) %>%
   janitor::clean_names()
@@ -217,8 +278,6 @@ bst20 %>%
 
 
 ```
-
-
 
 
 
