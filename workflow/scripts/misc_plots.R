@@ -212,3 +212,48 @@ ggplot(power.dat, aes(y = or, x = maf)) +
   scale_y_continuous(trans='log10') + 
   # scale_alpha()
   theme_light()
+
+### Plot loci by year discovered with corresponding poewr lines
+adgwas_variants <- adgwas_loci %>% 
+  filter(study %nin% c("Jonsson", "Reiman")) %>%
+  arrange(locus_ld) %>% 
+  mutate(locus_ld = ifelse(is.na(locus_ld), row(.), locus_ld), 
+         effect = ifelse(OR > 1, OR, 1/OR), 
+         study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez")
+         ) %>%
+  left_join(adgwas_meta, by = "study") %>%
+  group_by(locus_ld) %>%
+  arrange(year) %>%
+  slice(1) %>%
+  ungroup() %>% 
+  select(SNP, CHR, BP, GENE, gnomad_maf, OR, annotation, annotation_impact, effect, cytoband, locus, locus_ld, study, year) 
+
+power.dat <- adgwas_power %>%
+  arrange(maf) %>%
+  mutate(inv_or = 1/or, 
+         fill = "fill", 
+         study = fct_relevel(study, "Lambert", "Marioni", "Jansen", "Kunkle", "Wightman", "Bellenguez", "Future2")) %>% 
+  filter(study %nin% c("Future1")) %>%
+  # filter(study %in% c("Bellenguez", "Future1", "Future2")) %>%
+  group_by(study) %>%
+  fill(or, .direction = "up") %>%
+  distinct(maf, or, .keep_all = T) %>%
+  ungroup()
+
+test <- ggplot(power.dat, aes(x = maf, y = or, color = study), lwd=0.25) + 
+  geom_line(alpha = 0.5) + 
+  geom_point(data = adgwas_variants, aes(x = gnomad_maf, y = effect, color = study), size = 0.5) + 
+  scale_color_brewer(palette = "Set2") + 
+  scale_x_continuous(trans='log10',
+                     breaks = c(0.00001, 0.0001, 0.001, 0.01, 0.1, 0.25, 0.5),
+                     labels = c("5e-1", "0.0001", "0.001", "0.01", "0.1", "0.25", "0.5")) + 
+  scale_y_continuous(trans='log', 
+                     breaks=c(0, 1, 2, 4, 8, 12, 16, 20), 
+                     labels = c("0", "1", "2", "4", "8", "12", "16", "20")) +
+  coord_cartesian(xlim=c(0.00002, 0.5), ylim = c(0.9, 20)) + 
+  theme_classic()
+
+ggsave(plot = test, "sandbox/plots/loci_year_discoverd.png", 
+       units = "in", height = 6, width = 6
+)
+
