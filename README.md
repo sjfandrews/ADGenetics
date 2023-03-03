@@ -28,6 +28,8 @@ Rules for defining the workflow are in `workflow/Snakefile` and the individule s
     - Loci were defined by merging overlapping regions +/- 500kb around each lead variant from each study to obtain non-overlapping regions. 
     - LD pruning (EUR GRCh37 reference, r2 = 0.1, MAF = 0.001) using LDlink SNPclip was employed to define independent variants in each locus
 
+The final list of variants can found in [`results/adgwas_loci.csv`](https://github.com/sjfandrews/ADGenetics/blob/main/results/adgwas_loci.csv)
+
 3. **Power Curves**: Estimated detectable effect size at a given alelle frequency (MAF = 0.000001 - 0.5) and effective sample at 80% power
 
 4. **Plotting**: Genetic architecture plots showing the allele spectrum (frequncy vs effect size) for single marker association results. Upset plots showing intersection of discovered loci across each GWAS. 
