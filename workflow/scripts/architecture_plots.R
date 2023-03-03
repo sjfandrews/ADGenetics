@@ -18,6 +18,7 @@ library(plotgardener)
 adgwas_loci.path = "results/adgwas_loci.csv"
 adgwas_meta.path = "intermediate/gwas_metadata.csv"
 adgwas_power.path = "intermediate/adgwas_power.csv"
+bellenguez_supp.path = "resources/Bellenguez2022/41588_2022_1024_MOESM4_ESM.xlsx"
 
 adgwas_loci.path = snakemake@input[['loci']]
 adgwas_meta.path = snakemake@input[['meta']]
@@ -59,24 +60,42 @@ adgwas_variants <- adgwas_loci %>%
   filter(locus %nin% apoe_locus$locus) %>%
   bind_rows(filter(adgwas_loci, str_detect(SNP, "APOE")))
 
+### Bellenguez Supplementary gene prioritization
+st20 <- readxl::read_xlsx(bellenguez_supp.path, sheet = 21, skip = 2) %>% 
+  janitor::clean_names() %>%
+  select(gene, locus, gene_prioritization_tier, scoregene) %>%
+  filter(gene_prioritization_tier %nin% c("-", "Excluded (Independent Loci)", "Tier 2", "Excluded (IGH Locus)")) %>%
+  mutate(
+    locus2 = str_extract(locus, ".*(?= Locus)")
+  ) %>%
+  select(-locus)
+
 ### Wrangling data for plotting 
 ### Lable rare variants with amino acid change, else selected gene lables
 ### Absolute effect sizes, direction, and architecture space
 genes_to_plot <- c("ABCA7", "ABCA1", "TREM2", "APOE", "SIGLEC11", "GRN", "ABI3", "PLCG2", "BIN1", "CD2AP", "EED", "SPI1", 
-                   "PTK2B", "CLU", "CASS4", "BLNK", "NCK2", "RIN3", "MS4A", "CD33", "PILRA", "CTSB", "CTSH", "APP")
+                   "PTK2B", "CLU", "CASS4", "BLNK", "NCK2", "RIN3", "MS4A", "CD33", "PILRA", "CTSB", "CTSH", "APP", 
+                   "CR1", "HLA", "EPHA1", "MS4A", "ADAM10", "MAPT", "ACE" 
+                   )
 
 dat.p <- adgwas_variants %>%
+  left_join(st20, by = c("GENE" = "locus2")) %>%
   mutate(
     label = case_when(
       annotation_impact %in% c("HIGH", "LOW", "MODERATE") & gnomad_maf < 0.05 &  GENE %in% genes_to_plot ~ glue("{gene_name} {hgvs_p_new}"),
       str_detect(GENE, "APOE") ~ GENE, 
       GENE %in% genes_to_plot ~ GENE, 
+      !is.na(gene) ~ GENE,
       # !is.na(gvc_gene) ~ gvc_gene,
     ), 
     label = ifelse(is.na(label), "", label),
     dir = ifelse(OR > 1, "risk", "protective"), 
     effect = ifelse(OR > 1, OR, 1/OR),
     size = ifelse(effect < 1.2, 1, effect),
+    shp = ifelse(
+      (label != "SORT1" & annotation_impact %in% c("HIGH", "LOW", "MODERATE") & 
+        gnomad_maf < 0.05 & effect > 1.3 | str_detect(label, "APOE")), TRUE, FALSE
+    ),
     category=cut(effect, breaks=c(1, 1.1, 1.2, 1.3, 1.5, 2, 2.5, 3, 3.5, Inf), 
                  labels=c("1-1.1","1.1-1.2","1.2-1.3","1.3-1.5","1.5-2", "2-2.5", "2.5-3", "3-3.5", ">4")),
     architecture = case_when(
@@ -99,7 +118,7 @@ dat.p <- adgwas_variants %>%
       TRUE ~ NA_character_
       )
     ) %>% 
-  select(SNP, CHR, BP, GENE, gnomad_maf, OR, label, architecture, 
+  select(SNP, CHR, BP, GENE, gnomad_maf, OR, label, shp, architecture, 
          annotation, annotation_impact, dir, size, effect, cytoband, locus, locus_ld, study) 
 
 ## Wrangle Power Curve datases 
@@ -239,7 +258,7 @@ pos <- ggbeeswarm::position_quasirandom(groupOnX = TRUE)
 adad.p <- ggplot(adad, aes(x = x, y = y, color = Gene, label = Gene)) + 
   geom_point(position = pos, size = 11, fill = "#be64ac", shape = 21, color = "#87497b") +
   geom_text(position = pos, color = "white", size = geom.text.size) +
-  scale_y_continuous(breaks = 2, labels = "Causal") +
+  scale_y_continuous(breaks = 1, labels = "Highly\nPenetrant") +
   theme_classic() +
   labs(x = "Global Population Minor Allele Frequency", y = " ") + 
   coord_cartesian(ylim=c(-0.5, 3), xlim = c(0.5, 2.5)) +
@@ -250,13 +269,12 @@ adad.p <- ggplot(adad, aes(x = x, y = y, color = Gene, label = Gene)) +
     axis.title.x = element_blank(),
     axis.ticks.x = element_blank(), 
     axis.line.x=element_blank(), 
-    axis.text.y = element_text(angle=90), 
+    axis.text.y = element_text(angle=90, hjust=0.5,vjust=0.5), 
     axis.ticks.y = element_blank(),
     # axis.line.y=element_blank(),
     text = element_text(size = theme.size), 
     panel.background = element_rect(fill='white'),
     plot.background = element_rect(fill='white', color=NA),
-    
   )
 
 adad.p
@@ -295,28 +313,38 @@ dev.off()
 ### Absolute Scale 
 abs_gwas.p <- ggplot() + 
   # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
+  geom_rect(data = tibble(ymax = 1.27, ymin = 0.98, xmax = 0.51, xmin = 0.049), 
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), 
+            color = "grey80", size = 0.25, fill = "grey95"
+  ) + 
   geom_line(data = filter(power.dat, study == "Bellenguez"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
   geom_line(data = filter(power.dat, study == "Future2"), aes(x = maf, y = or), lwd=0.25, color ="grey90") + 
   geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez), 
               aes(ymin = or, ymax = Future2, x = maf), fill = "grey90") +
   # geom_hline(yintercept = 12) + 
   geom_text_repel(
-    data = dat.p,
+    data =  dat.p %>% filter(gnomad_maf < 0.05),
     aes(x = gnomad_maf, y = effect, label = label, point.size = size),
-    max.overlaps = Inf, seed = 333,
+    max.overlaps = Inf, seed = 100, xlim = c(NA, -1.30),
     segment.size  = 0.2, segment.color = "grey50", min.segment.length = 0,
-    color = "black", size = geom.text.size, show.legend = F) +
-  geom_point(data = filter(dat.p, dir == "risk" & label != "") , shape = 24,
+    color = "black", size = geom.text.size, show.legend = F,) +
+  geom_text_repel(
+    data =  dat.p %>% filter(gnomad_maf > 0.05 & effect > 1.25),
+    aes(x = gnomad_maf, y = effect, label = label, point.size = size),
+    max.overlaps = Inf, seed = 100,
+    segment.size  = 0.2, segment.color = "grey50", min.segment.length = 0,
+    color = "black", size = geom.text.size, show.legend = F,) +
+  geom_point(data = filter(dat.p, dir == "risk" & shp == T) , shape = 24,
            aes(x = gnomad_maf, y = effect, 
                color = architecture, 
                fill = architecture, 
                size = size)) +
-  geom_point(data = filter(dat.p, dir == "protective" & label != ""), shape = 25, 
+  geom_point(data = filter(dat.p, dir == "protective" & shp == T), shape = 25, 
              aes(x = gnomad_maf, y = effect, 
                  color = architecture, 
                  fill = architecture, 
                  size = size)) +
-  geom_point(data = filter(dat.p, label == ""), shape = 19, 
+  geom_point(data = filter(dat.p, shp == F), shape = 19, 
              aes(x = gnomad_maf, y = effect, 
                  color = architecture, 
                  fill = architecture, 
@@ -340,6 +368,9 @@ abs_gwas.p <- ggplot() +
     axis.line.y=element_blank(), 
     text = element_text(size = theme.size), 
     legend.position = 'none', 
+    plot.background = element_rect(fill = "transparent", colour = NA_character_), 
+    panel.background = element_rect(fill = "transparent", colour = NA_character_)
+    
   )
 
 abs_gwas.p
@@ -356,9 +387,8 @@ abs_yaxis.p <- ggplot() +
   labs(x = "", y = "Odds Ratio - Minor Allele\n(Absolute Scale)") + 
   theme(
     text = element_text(size = theme.size), 
-    panel.background = element_rect(fill='white'),
-    plot.background = element_rect(fill='white', color=NA),
-    
+    plot.background = element_rect(fill = "transparent", colour = NA_character_), 
+    panel.background = element_rect(fill = "transparent", colour = NA_character_)
   )
 abs_yaxis.p
 
@@ -418,6 +448,142 @@ plotGG(
 
 pageGuideHide()
 dev.off()
+
+
+
+###############################################################################
+# Testing a cutout of common space
+
+cutout.p <- ggplot() + 
+  # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
+  geom_smooth(data = filter(power.dat, study == "Bellenguez"), aes(x = maf, y = or), lwd=2.5, color ="grey90", se = F) + 
+  geom_smooth(data = filter(power.dat, study == "Future2"), aes(x = maf, y = or), lwd=2.5, color ="grey90", se = F) + 
+  geom_ribbon(data = select(power.dat, maf, or, study) %>% pivot_wider(names_from = study, values_from = or) %>% rename(or = Bellenguez), 
+              aes(ymin = or, ymax = Future2, x = maf), fill = "grey90") +
+  geom_text_repel(
+    data = dat.p %>% filter(gnomad_maf > 0.05 & effect < 1.25),
+    aes(x = gnomad_maf, y = effect, label = label, point.size = size),
+    max.overlaps = Inf, seed = 333,
+    segment.size  = 0.2, segment.color = "grey50", min.segment.length = 0,
+    angle = 90, ylim = c(NA, 0.99), hjust = 1,
+    color = "black", size = geom.text.size, show.legend = F, 
+    direction = "x",
+    segment.curvature = -1e-20, segment.ncp = 3) +
+  geom_point(data = dat.p,
+             aes(x = gnomad_maf, y = effect, 
+                 color = architecture, 
+                 fill = architecture), 
+             size = 0.5) +
+  scale_size(guide = 'none', range = c(0.5,6)) +
+  theme_light() + 
+  scale_x_continuous(#trans='log',
+    breaks = c(0.05, 0.1, 0.2, 0.3, 0.4, 0.5),
+    labels = c("0.05", "0.1", "0.2", "0.3", "0.4", "0.5")) + 
+  scale_y_continuous(breaks = c(1, 1.1, 1.2)) +
+  coord_cartesian(xlim=c(0.049, 0.5), ylim = c(0.85, 1.2)) + 
+  # scale_colour_manual(values = c("#3b4994", "#5ac8c8", "#8c62aa", "#dfb0d6", "#ace4e4", "red")) + 
+  scale_colour_manual(values = use_col) + 
+  scale_fill_manual(values = use_col) + 
+  guides(color=guide_legend(ncol=2)) + 
+  theme(
+    axis.title.x = element_blank(),
+    # axis.text.y = element_blank(), 
+    axis.title.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    axis.line.y=element_blank(), 
+    text = element_text(size = theme.size), 
+    legend.position = 'none', 
+    panel.grid = element_blank(), 
+    plot.background = element_rect(fill = "transparent", colour = NA_character_), 
+    panel.background = element_rect(fill = "transparent", colour = NA_character_)
+  )
+
+cutout.p
+
+## Zoom-in polygon 
+positions = tribble(
+  ~x, ~y, 
+  0.1, 1.34,
+  7, 2,
+  # 6.75, 1.85,
+  # 8.65, 1.85, 
+  9.05, 2, 
+  9.36, 1.34
+)
+
+ribbon.p <- ggplot() +
+  geom_polygon(data = positions, aes(x = x, y = y), fill = 'grey95') + 
+  theme_void() +
+  coord_cartesian(xlim=c(0, 9), ylim = c(0, 4.5)) + 
+  theme(
+    plot.background = element_rect(fill = "transparent", colour = NA_character_), 
+    panel.background = element_rect(fill = "transparent", colour = NA_character_)
+  )
+
+
+png("~/Downloads/test.png", 
+    width = 9, height = 4.5, units = "in", res = 300)
+
+pageCreate(width = 9, height = 4.5, default.units = "inches")
+
+plotGG(
+  plot = ribbon.p,
+  x = 0, y = 0,
+  width = 9, height = 4.5, just = c("left", "top")
+)
+
+plotGG(
+  plot = abs_gwas.p + theme(legend.position = "none"),
+  x = 0.1, y = 0.3,
+  width = 9, height = 2.7, just = c("left", "top")
+)
+
+plotGG(
+  plot = cutout.p + theme(legend.position = "none"),
+  x = 0.24, y = 3,
+  width =  8.76, height = 1.5, just = c("left", "top")
+)
+
+plotGG(
+  plot = void.p,
+  x = 0, y = 0.75,
+  width = 1.5, height = 2, just = c("left", "top")
+)
+
+plotGG(
+  plot = abs_yaxis.p,
+  x = 0, y = 0.75,
+  width = 1.5, height = 2.25, just = c("left", "top")
+)
+
+# plotGG(
+#   plot = void.p,
+#   x = 0, y = 0.75,
+#   width = 0.6, height = 0.25, just = c("left", "top")
+# )
+
+plotGG(
+  plot = adad.p,
+  x = 0.04, y = 0,
+  width = 1.5, height = 0.75, just = c("left", "top")
+)
+
+# plotGG(
+#   plot = abs_gwas.p + theme(legend.position = "none"),
+#   x = 1.5, y = 0.75,
+#   width = 7.5, height = 3.75, just = c("left", "top")
+# )
+
+plotGG(
+  plot = bivariate_legend,
+  x = 8.9, y = 0,
+  width = 1.4, height = 1.4, just = c("right", "top")
+)
+
+pageGuideHide()
+dev.off()
+
+
 
 
 

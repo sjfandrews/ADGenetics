@@ -280,7 +280,19 @@ bst20 %>%
 ```
 
 
+```{r, rare_variants}
+# Guen et al
 
+guen <- tribble(
+  ~cohort, ~data, ~stage, ~cases, ~controls,
+  'ADSP', 'NGS', 'discovery', 11868, 11934, 
+  'ADGC', 'array', 'replication', 7768, 8059,
+  'UKB', 'NGS', 'replication', 28484, 157436, 
+  'EADB', 'array', 'replication', 36393, 150943,
+)
+
+group_by(guen, data, stage) %>% summarise(cases = sum(cases), ctrl = sum(controls))
+```
 
 
 
