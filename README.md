@@ -52,9 +52,9 @@ The final list of variants can found in [`results/adgwas_loci.csv`](https://gith
 
 ## Citation 
 
-Andrews SJ, Renton A, Fulton-Howard B, Podlesny-Drabiniok A, Marcora E & Goate A. (2023). *The complex genetic architecture of Alzheimer's disease: novel insights and future directions.* eBioMedicine. https://doi.org/10.1016/j.ebiom.2023.104511
+Andrews SJ, Renton A, Fulton-Howard B, Podlesny-Drabiniok A, Marcora E & Goate A. (2023). *The complex genetic architecture of Alzheimer's disease: novel insights and future directions.* [eBioMedicine 90, 104511](https://doi.org/10.1016/j.ebiom.2023.104511). 
 
-Romero-Molina C, Garretti F, Andrews SJ, Marcora E & Goate AM. (2022). *Microglial efferocytosis: Diving into the Alzheimer’s disease gene pool*. Neuron 110, 3513–3533.
+Romero-Molina C, Garretti F, Andrews SJ, Marcora E & Goate AM. (2022). *Microglial efferocytosis: Diving into the Alzheimer’s disease gene pool*. [Neuron 110, 3513–3533](https://www.sciencedirect.com/science/article/pii/S0896627322009199).
   
 
 Contributors: 
