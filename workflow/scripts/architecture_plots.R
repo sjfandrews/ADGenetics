@@ -452,7 +452,7 @@ dev.off()
 
 
 ###############################################################################
-# Testing a cutout of common space
+# eBioMedicine
 
 cutout.p <- ggplot() + 
   # geom_line(data = power_0001_12.dat, aes(x = maf, y = or), lwd=0.25, col="#F66B0E") +
@@ -521,8 +521,14 @@ ribbon.p <- ggplot() +
   )
 
 
-png("~/Downloads/test.png", 
-    width = 9, height = 4.5, units = "in", res = 300)
+tiff(
+    filename = "results/plots/eBioMedicine_AD_GeneticArchitecture.tiff",
+    width    = 9,           # inches
+    height   = 4.5,         # inches
+    units    = "in",
+    res      = 300,          # will embed 300×300 dpi
+    compression = "lzw", type = "cairo"
+  )
 
 pageCreate(width = 9, height = 4.5, default.units = "inches")
 
@@ -583,8 +589,11 @@ plotGG(
 pageGuideHide()
 dev.off()
 
+library(magick)
 
-
+file_in  <- "results/plots/eBioMedicine_AD_GeneticArchitecture.tiff"
+img <- image_read(file_in)
+image_info(img)
 
 
 
